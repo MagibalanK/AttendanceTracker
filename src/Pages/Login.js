@@ -149,7 +149,7 @@ export default function App() {
                                                     letterSpacing: "-0.025em",
                                                     color: isDark ? "#f3f4f6" : "#111827",
                                                     fontWeight: "600",
-                                                }, children: "hello again" }), _jsx(Sparkles, { style: {
+                                                }, children: "Hello again!" }), _jsx(Sparkles, { style: {
                                                     width: "24px",
                                                     height: "24px",
                                                     color: isDark ? "#60a5fa" : "#3b82f6",
@@ -206,10 +206,10 @@ export default function App() {
                                     textAlign: "center",
                                 }, children: error === "Email and password are required."
                                     ? error
-                                    : "Invalid username / password, try again" })), _jsx(motion.div, { style: { textAlign: "center", marginTop: "48px" }, initial: { opacity: 0 }, animate: { opacity: 1 }, transition: { delay: 0.7, duration: 0.5 }, children: _jsxs("p", { style: { fontSize: "14px", color: "#6b7280" }, children: ["new here?", " ", _jsx(motion.a, { href: "/signup", style: {
+                                    : "Invalid username / password, try again" })), _jsx(motion.div, { style: { textAlign: "center", marginTop: "48px" }, initial: { opacity: 0 }, animate: { opacity: 1 }, transition: { delay: 0.7, duration: 0.5 }, children: _jsxs("p", { style: { fontSize: "14px", color: "#6b7280" }, children: ["New here?", " ", _jsx(motion.a, { href: "/signup", style: {
                                                 color: isDark ? "#c084fc" : "#a855f7",
                                                 textDecoration: "none",
-                                            }, whileHover: { scale: 1.05 }, children: "create account" })] }) })] }), [...Array(5)].map((_, i) => (_jsx(motion.div, { style: {
+                                            }, whileHover: { scale: 1.05 }, children: "Create Account" })] }) })] }), [...Array(5)].map((_, i) => (_jsx(motion.div, { style: {
                             position: "absolute",
                             width: "8px",
                             height: "8px",

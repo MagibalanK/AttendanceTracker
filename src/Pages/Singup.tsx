@@ -1,16 +1,16 @@
-import { useState ,useActionState} from "react";
+import { useState, useActionState } from "react";
 import { Sun, Moon, Sparkles } from "lucide-react";
 import { motion } from "motion/react";
 import supabase from "../supabaseClient";
 import { useAuth } from "../AuthContext";
-import { useNavigate} from 'react-router-dom';
+import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { Toaster } from "../components/ui/sonner";
 
 interface SignInResult {
   success: boolean;
   data2?: {
-    session?: unknown; 
+    session?: unknown;
   };
   error2?: string;
 }
@@ -23,50 +23,67 @@ export default function Signup() {
   const [isFocused, setIsFocused] = useState(false);
   const { signInUser } = useAuth();
   const navigate = useNavigate();
-  
-
 
   const toggleTheme = () => {
     setTheme(theme === "light" ? "dark" : "light");
   };
 
-const handleSubmit = async () => {
+  const handleSubmit = async () => {
+  // Make sure you have:
+  // const [name, setName] = useState("");
+  // const [email, setEmail] = useState("");
+  // const [password, setPassword] = useState("");
+
   const { data, error } = await supabase.auth.signUp({
     email,
     password,
+    options: {
+      data: {
+        name: name,
+      },
+    },
   });
 
   if (error) {
     console.log("Signup error:", error.message);
-    
-    setTimeout(()=>{toast.success('User Already Exist');},1000)
-  
-  
+    setTimeout(() => {
+      toast.error("User already exists!");
+    }, 1000);
+    return;
   }
 
   console.log("Signup success:", data);
+  setTimeout(() => {
+    toast.success("Signup success!");
+  }, 1000);
 
-
-  const { success, data2, error2: signInError }: SignInResult = await signInUser(email, password);
+  
+  const {
+    success,
+    data2,
+    error2: signInError,
+  }: SignInResult = await signInUser(email, password);
 
   if (success) {
     console.log("Login successful after signup!");
     navigate("/dashboard");
   } else {
     console.error("Auto-login failed:", signInError);
-    toast.success("Wrong credentials ")
-    
-    
-
+    toast.error("Wrong credentials");
   }
 };
-  const [error ,han3eSubmit,isPending ]= useActionState(()=>handleSubmit() , null)
+
+const [error, handleSubmitWithState, isPending] = useActionState(
+  () => handleSubmit(),
+  null
+);
+
 
   const isDark = theme === "dark";
 
   return (
     <>
-         <Toaster />
+      <Toaster />
       <style>{`
         * {
           margin: 0;
@@ -238,7 +255,7 @@ const handleSubmit = async () => {
                   fontWeight: "600",
                 }}
               >
-                level up your cgpa?
+                Wanna level up your cgpa?
               </h1>
               <Sparkles
                 style={{
@@ -254,8 +271,36 @@ const handleSubmit = async () => {
           </motion.div>
 
           {/* Form */}
-          <form action={han3eSubmit} style={{ display: "flex", flexDirection: "column", gap: "24px" }}>
-   
+          <form
+            action={handleSubmitWithState}
+            style={{ display: "flex", flexDirection: "column", gap: "24px" }}
+          >            <motion.div
+              initial={{ opacity: 0, x: -20 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ delay: 0.3, duration: 0.5 }}
+            >
+              <input
+                type="text"
+                placeholder="your name"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                onFocus={() => setIsFocused(true)}
+                onBlur={() => setIsFocused(false)}
+                required
+                className="input-field"
+                style={{
+                  width: "100%",
+                  height: "56px",
+                  backgroundColor: isDark ? "#1f2937" : "#f9fafb",
+                  border: `2px solid ${isDark ? "#374151" : "#e5e7eb"}`,
+                  borderRadius: "16px",
+                  padding: "0 24px",
+                  fontSize: "16px",
+                  color: isDark ? "#f3f4f6" : "#111827",
+                }}
+              />
+            </motion.div>
+
 
             <motion.div
               initial={{ opacity: 0, x: -20 }}
@@ -316,58 +361,61 @@ const handleSubmit = async () => {
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.6, duration: 0.5 }}
             >
-              <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
-{isPending && (
-  <button
-    type="submit"
-    disabled
-    className="btn"
-    style={{
-      width: "100%",
-      height: "56px",
-      borderRadius: "16px",
-      background: isDark
-        ? "linear-gradient(to right, #6d28d9, #1d4ed8)" // toned-down purple & blue
-        : "linear-gradient(to right, #8b5cf6, #2563eb)", // lighter, less saturated
-      color: "rgba(255, 255, 255, 0.8)", // slightly dimmed white
-      fontSize: "16px",
-      fontWeight: "500",
-      opacity: 0.7, // visually indicates disabled
-      cursor: "not-allowed",
-      boxShadow: isDark
-        ? "0 6px 20px rgba(109, 40, 217, 0.2)" // softer shadow
-        : "0 6px 20px rgba(139, 92, 246, 0.2)",
-      transition: "all 0.2s ease",
-    }}
-  >
-    creatinggg →
-  </button>
-)}
+              <motion.div
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
+              >
+                {isPending && (
+                  <button
+                    type="submit"
+                    disabled
+                    className="btn"
+                    style={{
+                      width: "100%",
+                      height: "56px",
+                      borderRadius: "16px",
+                      background: isDark
+                        ? "linear-gradient(to right, #6d28d9, #1d4ed8)" // toned-down purple & blue
+                        : "linear-gradient(to right, #8b5cf6, #2563eb)", // lighter, less saturated
+                      color: "rgba(255, 255, 255, 0.8)", // slightly dimmed white
+                      fontSize: "16px",
+                      fontWeight: "500",
+                      opacity: 0.7, // visually indicates disabled
+                      cursor: "not-allowed",
+                      boxShadow: isDark
+                        ? "0 6px 20px rgba(109, 40, 217, 0.2)" // softer shadow
+                        : "0 6px 20px rgba(139, 92, 246, 0.2)",
+                      transition: "all 0.2s ease",
+                    }}
+                  >
+                    Creating...
+                  </button>
+                )}
 
-                {!isPending&&<button
-                  type="submit"
-                  className="btn"
-                  style={{
-                    width: "100%",
-                    height: "56px",
-                    borderRadius: "16px",
-                    background: isDark
-                      ? "linear-gradient(to right, #7c3aed, #2563eb)"
-                      : "linear-gradient(to right, #a855f7, #3b82f6)",
-                    color: "#ffffff",
-                    fontSize: "16px",
-                    fontWeight: "500",
-                    boxShadow: isDark
-                      ? "0 10px 30px rgba(124, 58, 237, 0.3)"
-                      : "0 10px 30px rgba(168, 85, 247, 0.3)",
-                  }}
-                >
-                  create account →
-                </button>}
+                {!isPending && (
+                  <button
+                    type="submit"
+                    className="btn"
+                    style={{
+                      width: "100%",
+                      height: "56px",
+                      borderRadius: "16px",
+                      background: isDark
+                        ? "linear-gradient(to right, #7c3aed, #2563eb)"
+                        : "linear-gradient(to right, #a855f7, #3b82f6)",
+                      color: "#ffffff",
+                      fontSize: "16px",
+                      fontWeight: "500",
+                      boxShadow: isDark
+                        ? "0 10px 30px rgba(124, 58, 237, 0.3)"
+                        : "0 10px 30px rgba(168, 85, 247, 0.3)",
+                    }}
+                  >
+                    Create account →
+                  </button>
+                )}
               </motion.div>
             </motion.div>
-
-
           </form>
 
           {/* Footer */}
@@ -378,7 +426,7 @@ const handleSubmit = async () => {
             transition={{ delay: 0.8, duration: 0.5 }}
           >
             <p style={{ fontSize: "14px", color: "#6b7280" }}>
-              already have an account?{" "}
+              Already have an account?{" "}
               <motion.a
                 href="/"
                 style={{
@@ -387,7 +435,7 @@ const handleSubmit = async () => {
                 }}
                 whileHover={{ scale: 1.05 }}
               >
-                sign in
+                Sign in
               </motion.a>
             </p>
           </motion.div>
@@ -406,17 +454,23 @@ const handleSubmit = async () => {
               opacity: 0.4,
             }}
             initial={{
-              x: Math.random() * (typeof window !== "undefined" ? window.innerWidth : 1000),
-              y: Math.random() * (typeof window !== "undefined" ? window.innerHeight : 1000),
+              x:
+                Math.random() *
+                (typeof window !== "undefined" ? window.innerWidth : 1000),
+              y:
+                Math.random() *
+                (typeof window !== "undefined" ? window.innerHeight : 1000),
             }}
             animate={{
               y: [
                 null,
-                Math.random() * (typeof window !== "undefined" ? window.innerHeight : 1000),
+                Math.random() *
+                  (typeof window !== "undefined" ? window.innerHeight : 1000),
               ],
               x: [
                 null,
-                Math.random() * (typeof window !== "undefined" ? window.innerWidth : 1000),
+                Math.random() *
+                  (typeof window !== "undefined" ? window.innerWidth : 1000),
               ],
             }}
             transition={{

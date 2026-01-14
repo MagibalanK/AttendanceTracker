@@ -1,17 +1,7 @@
-interface Course {
-    id: string;
-    name: string;
-    color: string;
-}
-interface AttendanceRecord {
-    id: string;
-    courseId: string;
-    date: string;
-    status: "present" | "absent" | "nodata";
-}
 interface AnalyticsProps {
-    course: Course;
-    records: AttendanceRecord[];
+    totalClasse: number;
+    attendedClasse: number;
+    isDar?: boolean;
 }
-export declare function Analytics({ course, records }: AnalyticsProps): import("react/jsx-runtime").JSX.Element;
+export default function Analytics({ totalClasse, attendedClasse, isDar, }: AnalyticsProps): import("react/jsx-runtime").JSX.Element;
 export {};

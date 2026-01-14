@@ -239,7 +239,7 @@ export default function App() {
                   fontWeight: "600",
                 }}
               >
-                hello again
+                Hello again!
               </h1>
               <Sparkles
                 style={{
@@ -402,7 +402,7 @@ export default function App() {
             transition={{ delay: 0.7, duration: 0.5 }}
           >
             <p style={{ fontSize: "14px", color: "#6b7280" }}>
-              new here?{" "}
+              New here?{" "}
               <motion.a
                 href="/signup"
                 style={{
@@ -411,7 +411,7 @@ export default function App() {
                 }}
                 whileHover={{ scale: 1.05 }}
               >
-                create account
+                Create Account
               </motion.a>
             </p>
           </motion.div>

@@ -7,6 +7,7 @@ import "./index.css";
 import Login from './Pages/Login';
 import Signup from './Pages/Singup';
 import { AuthContextProvider } from './AuthContext';
+import Error from './Pages/error';
 const route = createBrowserRouter([
     {
         path: '/',
@@ -19,6 +20,10 @@ const route = createBrowserRouter([
     {
         path: '/dashboard',
         element: _jsx(App, {})
+    },
+    {
+        path: '*',
+        element: _jsx(Error, {})
     }
 ]);
 createRoot(document.getElementById("root")).render(_jsx(AuthContextProvider, { children: _jsx(RouterProvider, { router: route }) }));

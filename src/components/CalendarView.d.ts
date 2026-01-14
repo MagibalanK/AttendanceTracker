@@ -13,6 +13,8 @@ interface CalendarWeeklyViewProps {
     courses: Course[];
     records: AttendanceRecord[];
     onToggleAttendance: (recordId: string) => void;
+    onWeekChange: (weekStart: Date) => void;
+    onAddCompensation: () => void;
 }
-export declare function CalendarWeeklyView({ courses, records, onToggleAttendance }: CalendarWeeklyViewProps): import("react/jsx-runtime").JSX.Element;
+export declare function CalendarWeeklyView({ courses, records, onToggleAttendance, onWeekChange, onAddCompensation, }: CalendarWeeklyViewProps): import("react/jsx-runtime").JSX.Element;
 export {};

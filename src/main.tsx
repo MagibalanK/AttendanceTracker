@@ -6,6 +6,7 @@ import "./index.css";
 import Login from './Pages/Login';
 import Signup from './Pages/Singup'
 import { AuthContextProvider } from './AuthContext';
+import Error from './Pages/error';
 
 
 const route = createBrowserRouter([
@@ -21,9 +22,12 @@ const route = createBrowserRouter([
   {
     path:'/dashboard',
     element:<App/>
-
-
+  },
+  {
+    path:'*',
+    element:<Error/>
   }
+
 
 ])
 

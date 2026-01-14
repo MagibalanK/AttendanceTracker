@@ -1,40 +1,37 @@
-import { useState, useEffect} from "react";
-import { Dashboard} from "./components/Dashboard";
-import { CalendarWeeklyView} from "./components/CalendarView"; 
-import { Analytics } from "./components/Analytics";
+import { useState, useEffect } from "react";
+import { Dashboard } from "./components/Dashboard";
+import { CalendarWeeklyView } from "./components/CalendarView";
+import Analytics from "./components/Analytics"
 import { AddCourseDialog } from "./components/AddCourseDialog";
+import { ImportCoursesDialog } from "./components/ImportCoursesDialog";
 import supabase from "./supabaseClient";
 import { useAuth } from "./AuthContext";
-import { useNavigate, Link } from 'react-router-dom';
-import { Button } from "./components/ui/button"
-import { Moon, Sun, User } from "lucide-react";
+import { useNavigate } from "react-router-dom";
+import { startOfWeek, addDays, format } from "date-fns";
+import { Button } from "./components/ui/button";
+import { Moon, Sun, User, Plus } from "lucide-react";
+import { AddCompensationDialog } from "./components/AddCompenstation";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuTrigger,
-} from "./components/ui/dropdown-menu"
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "./components/ui/alert-dialog";
-import { toast } from "sonner";
+} from "./components/ui/dropdown-menu";
 import { Toaster } from "./components/ui/sonner";
-import { format, addDays, subDays, getDay } from "date-fns";
 
+/* ================= TYPES ================= */
+
+interface ClassTime {
+  day: string;
+  sessions: number;
+}
 
 interface Course {
   id: string;
   name: string;
   color: string;
-  classTimes: Array<{ day: string; sessions: number }>;
+  classTimes: ClassTime[];
 }
 
 interface AttendanceRecord {
@@ -46,354 +43,489 @@ interface AttendanceRecord {
 
 type View = "dashboard" | "course" | "calendar" | "analytics";
 
-const DAY_MAPPING: Record<string, number> = {
-  Sunday: 0,
-  Monday: 1,
-  Tuesday: 2,
-  Wednesday: 3,
-  Thursday: 4,
-  Friday: 5,
-  Saturday: 6,
-};
-
+const WEEKDAYS = [
+  "Sunday",
+  "Monday",
+  "Tuesday",
+  "Wednesday",
+  "Thursday",
+  "Friday",
+  "Saturday",
+];
 
 export default function App() {
-  const navigate = useNavigate()
+  const [showCompDialog, setShowCompDialog] = useState(false);
+
+  const [copied, setCopied] = useState(false);
+
+  const navigate = useNavigate();
   const { signOutUser } = useAuth();
- 
-  const [user, setUser] = useState<{ email: string } | null>(null);
+
+  /* ================= STATE ================= */
+
+  const [userName, setUserName] = useState("Guest");
   const [isDarkMode, setIsDarkMode] = useState(false);
+
   const [courses, setCourses] = useState<Course[]>([]);
   const [records, setRecords] = useState<AttendanceRecord[]>([]);
+
   const [currentView, setCurrentView] = useState<View>("dashboard");
   const [selectedCourseId, setSelectedCourseId] = useState<string | null>(null);
+
   const [showAddCourseDialog, setShowAddCourseDialog] = useState(false);
+  const [showImportDialog, setShowImportDialog] = useState(false);
   const [editingCourse, setEditingCourse] = useState<Course | null>(null);
-  const [deletingCourseId, setDeletingCourseId] = useState<string | null>(null);
-
-useEffect(() => {
-  const loadData = async () => {
-    const savedTheme = localStorage.getItem("attendanceTheme");
-    if (savedTheme) setIsDarkMode(savedTheme === "dark");
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
-    setUser({ email: user.email ?? "" });
-    const { data: courseData, error: courseError } = await supabase
-      .from("courses")
-      .select("*")
-      .eq("userId", user.id);
-    if (courseError) console.error(courseError);
-    else if (courseData) setCourses(courseData);
-
-    
-    const { data: recordData, error: recordError } = await supabase
-      .from("attendanceRecords")
-      .select("*")
-      .eq("userId", user.id);
-    if (recordError) console.error(recordError);
-    else if (recordData) setRecords(recordData);
-  };
-
-  loadData();
-}, []);
-
-
-  useEffect(() => {
-    if (courses.length === 0) return;
-
-    const saveCourses = async () => {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-      if (!user) return;
-
-      const userCourses = courses.map((c) => ({
-        ...c,
-        userId: user.id,
-      }));
-
-      const { error } = await supabase.from("courses").upsert(userCourses);
-      if (error) console.error("Error saving courses:", error);
-    };
-
-    saveCourses();
-  }, [courses]);
-
-
-  useEffect(() => {
-    if (records.length === 0) return;
-
-    const saveRecords = async () => {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-      if (!user) return;
-
-      const userRecords = records.map((r) => ({
-        ...r,
-        userId: user.id, 
-      }));
-
-      const { error } = await supabase.from("attendanceRecords").upsert(userRecords);
-      if (error) console.error("Error saving attendance records:", error);
-    };
-
-    saveRecords();
-  }, [records]);
 
   
+  
+  function deriveAttendanceStats(
+  records: AttendanceRecord[]
+): { totalClasses: number; attendedClasses: number } {
+  const conducted = records.filter(
+    r => r.status === "present" || r.status === "absent"
+  );
+
+  const attended = conducted.filter(r => r.status === "present");
+
+  return {
+    totalClasses: conducted.length,
+    attendedClasses: attended.length,
+  };
+}
+const { totalClasses, attendedClasses } =
+  deriveAttendanceStats(records);
+
+
+  /* ================= AUTH ================= */
+
   useEffect(() => {
-    if (isDarkMode) {
-      document.documentElement.classList.add("dark");
-      localStorage.setItem("attendanceTheme", "dark");
-    } else {
-      document.documentElement.classList.remove("dark");
-      localStorage.setItem("attendanceTheme", "light");
-    }
+    supabase.auth.getUser().then(({ data }) => {
+      setUserName(data.user?.user_metadata?.name ?? "Guest");
+    });
+  }, []);
+
+  /* ================= THEME ================= */
+
+  useEffect(() => {
+    const saved = localStorage.getItem("attendanceTheme");
+    if (saved) setIsDarkMode(saved === "dark");
+  }, []);
+
+  useEffect(() => {
+    document.documentElement.classList.toggle("dark", isDarkMode);
+    localStorage.setItem("attendanceTheme", isDarkMode ? "dark" : "light");
+  
   }, [isDarkMode]);
-    const handleLogout = async () => {
-    try {
-      await signOutUser();
-      navigate("/");
-    } catch (err) {
-      console.error("Logout failed:", err);
-    }
-  };
 
-  const generateRecordsForCourse = (course: Course) => {
-    const newRecords: AttendanceRecord[] = [];
-    const today = new Date();
-    const startDate = subDays(today, 90);
-    const endDate = addDays(today, 90);
+const handleWeekChange = (weekStart: Date) => {
+  ensureAttendanceForWeek(weekStart);
+};
 
-    let currentDate = new Date(startDate);
-    while (currentDate <= endDate) {
-      const dayOfWeek = getDay(currentDate);
-
-      course.classTimes.forEach((classTime) => {
-        if (DAY_MAPPING[classTime.day] === dayOfWeek) {
-          for (let i = 0; i < classTime.sessions; i++) {
-            newRecords.push({
-              id: `${Date.now()}-${currentDate.getTime()}-${i}`,
-              courseId: course.id,
-              date: format(currentDate, "yyyy-MM-dd"),
-              status: "nodata",
-            });
-          }
-        }
-      });
-
-      currentDate = addDays(currentDate, 1);
-    }
-
-    return newRecords;
-  };
-
-  const handleAddCourse = (courseData: Omit<Course, "id"> | Course) => {
-    if ("id" in courseData) {
-      setCourses(courses.map((c) => (c.id === courseData.id ? courseData : c)));
-      toast.success("Course updated successfully!");
-    } else {
-      const newCourse: Course = { ...courseData, id: Date.now().toString() };
-      setCourses([...courses, newCourse]);
-      const newRecords = generateRecordsForCourse(newCourse);
-      setRecords([...records, ...newRecords]);
-      toast.success("Course added successfully!");
-    }
-    setEditingCourse(null);
-  };
-
-  const handleDeleteCourse = (courseId: string) => {
-    setDeletingCourseId(courseId);
-  };
-
-const confirmDeleteCourse = async () => {
-  if (!deletingCourseId) return;
+  /* ================= LOAD DATA ================= */
 
 
-  const { error: recordError } = await supabase
-    .from("attendanceRecords")
-    .delete()
-    .eq("courseId", deletingCourseId);
+const handleAddCompensation = async (
+  courseId: string,
+  date: string,
+  sessions: number,
+  status: "present" | "absent"
+) => {
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
 
-  if (recordError) {
-    console.error("Error deleting attendance records:", recordError);
-    toast.error("Failed to delete attendance records");
-    return;
-  }
+  if (!user) return;
 
+  const newRecords = Array.from({ length: sessions }).map(() => ({
+    id: crypto.randomUUID(),
+    courseId,
+    date,
+    status,
+    userId: user.id,
+  }));
 
-  const { error: courseError } = await supabase
-    .from("courses")
-    .delete()
-    .eq("id", deletingCourseId);
-
-  if (courseError) {
-    console.error("Error deleting course:", courseError);
-    toast.error("Failed to delete course");
-    return;
-  }
-
-
-  setCourses(courses.filter(c => c.id !== deletingCourseId));
-  setRecords(records.filter(r => r.courseId !== deletingCourseId));
-  setDeletingCourseId(null);
-
-  toast.success("Course and its attendance records deleted successfully!");
+  await supabase.from("attendanceRecords").insert(newRecords);
+  setRecords((prev) => [...prev, ...newRecords]);
 };
 
 
-  const handleToggleAttendance = (recordId: string) => {
-    setRecords(
-      records.map((r) => {
-        if (r.id === recordId) {
-          let newStatus: "present" | "absent" | "nodata";
-          if (r.status === "nodata") newStatus = "present";
-          else if (r.status === "present") newStatus = "absent";
-          else newStatus = "nodata";
-          return { ...r, status: newStatus };
+  useEffect(() => {
+    const loadData = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const { data: courseData } = await supabase
+        .from("courses")
+        .select("*")
+        .eq("userId", user.id);
+
+      const { data: recordData } = await supabase
+        .from("attendanceRecords")
+        .select("*")
+        .eq("userId", user.id);
+
+      setCourses(courseData ?? []);
+      setRecords(recordData ?? []);
+    };
+
+    loadData();
+  }, []);
+
+  /* ================= ATTENDANCE GENERATION ================= */
+
+  const ensureAttendanceForWeek = async (weekStart: Date) => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+
+    const newRecords: AttendanceRecord[] = [];
+
+    courses.forEach((course) => {
+      for (let i = 0; i < 7; i++) {
+        const date = addDays(weekStart, i);
+        const dayName = WEEKDAYS[date.getDay()];
+        const dateStr = format(date, "yyyy-MM-dd");
+
+        const scheduled = course.classTimes.some(
+          (ct) => ct.day === dayName
+        );
+
+        const exists = records.some(
+          (r) => r.courseId === course.id && r.date === dateStr
+        );
+
+        if (scheduled && !exists) {
+          newRecords.push({
+            id: crypto.randomUUID(),
+            courseId: course.id,
+            date: dateStr,
+            status: "nodata",
+          });
         }
-        return r;
-      })
-    );
+      }
+    });
+
+    if (newRecords.length > 0) {
+      await supabase.from("attendanceRecords").insert(
+        newRecords.map((r) => ({ ...r, userId: user.id }))
+      );
+      setRecords((prev) => [...prev, ...newRecords]);
+    }
   };
 
+  /* ================= HANDLERS ================= */
+
+  const handleToggleAttendance = async (recordId: string) => {
+    const record = records.find((r) => r.id === recordId);
+    if (!record) return;
+
+    const next =
+      record.status === "nodata"
+        ? "present"
+        : record.status === "present"
+        ? "absent"
+        : "nodata";
+
+    await supabase
+      .from("attendanceRecords")
+      .update({ status: next })
+      .eq("id", recordId);
+
+    setRecords((prev) =>
+      prev.map((r) =>
+        r.id === recordId ? { ...r, status: next } : r
+      )
+    );
+  };
 
   const handleViewCourse = (courseId: string) => {
     setSelectedCourseId(courseId);
     setCurrentView("course");
   };
 
-  const handleEditCourse = (course: Course) => {
-    setEditingCourse(course);
-    setShowAddCourseDialog(true);
+  const handleSaveCourse = async (
+    course: Course | Omit<Course, "id">
+  ) => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+
+    if ("id" in course) {
+      await supabase
+        .from("courses")
+        .update({
+          name: course.name,
+          color: course.color,
+          classTimes: course.classTimes,
+        })
+        .eq("id", course.id)
+        .eq("userId", user.id);
+
+      setCourses((prev) =>
+        prev.map((c) => (c.id === course.id ? course : c))
+      );
+    } else {
+      const newCourse: Course & { userId: string } = {
+        id: crypto.randomUUID(),
+        userId: user.id,
+        ...course,
+      };
+
+      await supabase.from("courses").insert(newCourse);
+      setCourses((prev) => [...prev, newCourse]);
+    }
+
+    setEditingCourse(null);
+    setShowAddCourseDialog(false);
+  };
+
+  const handleDeleteCourse = async (courseId: string) => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+
+    await supabase
+      .from("attendanceRecords")
+      .delete()
+      .eq("courseId", courseId)
+      .eq("userId", user.id);
+
+    await supabase
+      .from("courses")
+      .delete()
+      .eq("id", courseId)
+      .eq("userId", user.id);
+
+    setCourses((prev) => prev.filter((c) => c.id !== courseId));
+    setRecords((prev) => prev.filter((r) => r.courseId !== courseId));
+
+    if (selectedCourseId === courseId) {
+      setSelectedCourseId(null);
+      setCurrentView("dashboard");
+    }
+  };
+
+  const handleImportCourses = async (imported: Course[]) => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+
+    const rows = imported.map((c) => ({
+      ...c,
+      id: crypto.randomUUID(),
+      userId: user.id,
+    }));
+
+    await supabase.from("courses").insert(rows);
+    setCourses((prev) => [...prev, ...rows]);
+    setShowImportDialog(false);
+  };
+
+  const handleLogout = async () => {
+    await signOutUser();
+    navigate("/");
   };
 
   const selectedCourse = courses.find((c) => c.id === selectedCourseId);
 
- return (
-  <div className="min-h-screen bg-gray-50 dark:bg-gray-900 transition-colors duration-300">
-    <Toaster />
+  /* ================= RENDER ================= */
 
-      <nav className="sticky top-0 z-50 border-b bg-white dark:bg-gray-800 shadow-sm transition-colors duration-300">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3.5">
-          <div className="flex items-center justify-between relative">
+  return (
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 transition-colors">
+      <Toaster />
 
-  
-            <button
-              onClick={() => setCurrentView("dashboard")}
-              className="flex items-center hover:opacity-80 transition-opacity"
+      <nav className="sticky top-0 z-50 border-b bg-white dark:bg-gray-800 shadow-sm h-[100px]">
+        <div className="max-w-7xl mx-auto px-4 py-3 flex items-center justify-between">
+<button
+  onClick={() => currentView !== "dashboard" && setCurrentView("dashboard")}
+  className="flex items-center gap-2"
+>
+  {currentView !== "dashboard" && (
+    <span className="text-sm opacity-70">← Back</span>
+  )}
+  <img
+    src={isDarkMode ? "/darkcar.png" : "/lightcar.png"}
+    className="h-10 w-10"
+    alt="navigation"
+  />
+</button>
+
+
+          <h1 className="text-lg text-gray-800 dark:text-gray-100">
+            Attendance Tracker
+          </h1>
+
+          <div className="flex items-center gap-3">
+            <Button
+              size="icon"
+              onClick={() => setShowImportDialog(true)}
+              className="rounded-full bg-indigo-600 hover:bg-indigo-700 text-white"
             >
-              {isDarkMode ? (
-                <img src="./darkcar.png" width="50" alt="Dark car logo" />
-              ) : (
-                <img src="./lightcar.png" width="50" alt="Light car logo" />
-              )}
-            </button>
+              <Plus
+  size={20}
+  className={isDarkMode ? "text-white" : "text-gray-900"}
+/>
 
- 
-            <div>
-              <h1>
-                Attendance Tracker
-                
-              </h1>
-            </div>
+            </Button>
 
-            <div className="flex items-center space-x-3">
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button
-                    variant="ghost"
-                    className="flex items-center gap-3 text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700"
-                  >
-                    <User size={20} />
-                  
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent className="w-56" align="end">
-                  <DropdownMenuLabel>{user?.email || "Guest"}</DropdownMenuLabel>
-                  <DropdownMenuItem onClick={handleLogout}>
-                    Log out
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="icon">
+                  <User size={20}/>
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuLabel>{userName}</DropdownMenuLabel>
+                <DropdownMenuItem onClick={handleLogout}>
+                  Log out
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
 
-              {/* Theme Toggle */}
-              <button
-                onClick={() => setIsDarkMode(!isDarkMode)}
-                className="p-2 rounded-full border border-gray-300 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
-                aria-label="Toggle theme"
-              >
-                {isDarkMode ? <Sun size={20} /> : <Moon size={20} />}
-              </button>
-            </div>
+            <Button
+              size="icon"
+              variant="ghost"
+              onClick={() => setIsDarkMode((d) => !d)}
+            >
+              {isDarkMode ? <Sun size={20} /> : <Moon size={20} />}
+            </Button>
           </div>
         </div>
       </nav>
 
+      <main className="max-w-7xl mx-auto p-6">
+        {currentView === "dashboard" && (
+          <Dashboard
+            courses={courses}
+            records={records}
+            onAddCourse={() => setShowAddCourseDialog(true)}
+            onViewCalendar={() => setCurrentView("calendar")}
+            onViewAnalytics={() => setCurrentView("analytics")}
+            onViewCourse={handleViewCourse}
+            onEditCourse={(course) => {
+              setEditingCourse(course);
+              setShowAddCourseDialog(true);
+            }}
+            onDeleteCourse={handleDeleteCourse}
+          />
+        )}
 
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-      {currentView === "dashboard" && (
-        <Dashboard
-          courses={courses}
-          records={records}
-          onAddCourse={() => {
-            setEditingCourse(null);
-            setShowAddCourseDialog(true);
-          }}
-          onViewAnalytics={() => setCurrentView("analytics")}
-          onViewCalendar={() => setCurrentView("calendar")}
-          onViewCourse={handleViewCourse}
-          onEditCourse={handleEditCourse}
-          onDeleteCourse={handleDeleteCourse}
-        />
-      )}
+        {currentView === "calendar" && (
+<CalendarWeeklyView
+  courses={courses}
+  records={records}
+  onToggleAttendance={handleToggleAttendance}
+  onWeekChange={handleWeekChange}
+  onAddCompensation={() => setShowCompDialog(true)}
+/>
 
-      {currentView === "course" && selectedCourse && (
-        <Analytics course={selectedCourse} records={records} />
-      )}
+        )}
 
-      {currentView === "calendar" && (
-        <CalendarWeeklyView
-          courses={courses}
-          records={records}
-          onToggleAttendance={handleToggleAttendance}
-        />
-      )}
+        {currentView === "course" && selectedCourse && (
+    
+<Analytics
+  totalClasse={records.filter(r => r.courseId === selectedCourse.id).reduce((count, r) => {
+      if (r.status === "present" || r.status === "absent") {
+        return count + 1;
+      }
+      return count;
+    }, 0)}
+attendedClasse={
+  records
+    .filter(r => r.courseId === selectedCourse.id)
+    .reduce((count, r) => {
+      if (r.status === "present") {
+        return count + 1;
+      }
+      return count;
+    }, 0)
+}
+
+/>
+        )}
+      </main>
+
+      <AddCourseDialog
+        open={showAddCourseDialog}
+        onOpenChange={setShowAddCourseDialog}
+        onSave={handleSaveCourse}
+        editCourse={editingCourse}
+      />
+    
+<AddCompensationDialog
+  open={showCompDialog}
+  onOpenChange={setShowCompDialog}
+  courses={courses}
+  onSubmit={handleAddCompensation}
+/>
+
+      <ImportCoursesDialog
+        open={showImportDialog}
+        onOpenChange={setShowImportDialog}
+        onImport={handleImportCourses}
+      />
+<footer
+  style={{
+    marginTop: "3rem",
+    padding: "1.5rem 0",
+    borderTop: "1px solid var(--border)",
+    color: "var(--muted-foreground)",
+  }}
+>
+  <div
+    style={{
+      maxWidth: "1280px",
+      margin: "0 auto",
+      padding: "0 1.5rem",
+      display: "flex",
+      flexDirection: "column",
+      gap: "0.75rem",
+      alignItems: "center",
+      textAlign: "center",
+    }}
+  >
+<p style={{ fontSize: "0.875rem", margin: 0 }}>
+Found a bug or have feedback? Let us know.
+</p>
+
+    <div
+      style={{
+        display: "flex",
+        gap: "1rem",
+        fontSize: "0.75rem",
+      }}
+    >
+      <a
+        href="https://github.com/WhyDeezz"
+        target="_blank"
+        rel="noopener noreferrer"
+        style={{ color: "inherit", textDecoration: "none" }}
+      >
+        GitHub
+      </a>
+      <span>•</span>
+      <a
+        href="https://www.linkedin.com/in/vaithiesh-jayasankar-2b2586376/"
+        target="_blank"
+        rel="noopener noreferrer"
+        style={{ color: "inherit", textDecoration: "none" }}
+      >
+        LinkedIn
+      </a>
+      <span>•</span>
+      <a
+        href="https://www.instagram.com/why_deezz/"
+        target="_blank"
+        rel="noopener noreferrer"
+        style={{ color: "inherit", textDecoration: "none" }}
+      >
+        Instagram
+      </a>
+      <span>•</span>
+      <span>© {new Date().getFullYear()}</span>
     </div>
 
-    {/* Add Course Dialog */}
-    <AddCourseDialog
-      open={showAddCourseDialog}
-      onOpenChange={setShowAddCourseDialog}
-      onSave={handleAddCourse}
-      editCourse={editingCourse}
-    />
-
-    <AlertDialog
-      open={!!deletingCourseId}
-      onOpenChange={(open) => !open && setDeletingCourseId(null)}
-    >
-      <AlertDialogContent>
-        <AlertDialogHeader>
-          <AlertDialogTitle>Delete Course</AlertDialogTitle>
-          <AlertDialogDescription>
-            Are you sure you want to delete this course? This will also delete
-            all attendance records for this course. This action cannot be undone.
-          </AlertDialogDescription>
-        </AlertDialogHeader>
-        <AlertDialogFooter>
-          <AlertDialogCancel>Cancel</AlertDialogCancel>
-          <AlertDialogAction
-            onClick={confirmDeleteCourse}
-            className="bg-red-600 hover:bg-red-700"
-          >
-            Delete
-          </AlertDialogAction>
-        </AlertDialogFooter>
-      </AlertDialogContent>
-    </AlertDialog>
   </div>
-);
 
+</footer>
+
+    </div>
+
+  );
 }
