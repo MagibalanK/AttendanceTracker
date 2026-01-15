@@ -3,5 +3,5 @@ interface AnalyticsProps {
     attendedClasse: number;
     isDar?: boolean;
 }
-export default function Analytics({ totalClasse, attendedClasse, isDar, }: AnalyticsProps): import("react/jsx-runtime").JSX.Element;
+export default function Analytics({ totalClasse, attendedClasse, }: AnalyticsProps): import("react/jsx-runtime").JSX.Element;
 export {};

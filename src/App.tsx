@@ -481,7 +481,7 @@ attendedClasse={
     }}
   >
 <p style={{ fontSize: "0.875rem", margin: 0 }}>
-Found a bug or have feedback? Let us know.
+Found a bug or have feedback? Lemme know.
 </p>
 
     <div

@@ -244,7 +244,7 @@ export default function App() {
                         gap: "0.75rem",
                         alignItems: "center",
                         textAlign: "center",
-                    }, children: [_jsx("p", { style: { fontSize: "0.875rem", margin: 0 }, children: "Found a bug or have feedback? Let us know." }), _jsxs("div", { style: {
+                    }, children: [_jsx("p", { style: { fontSize: "0.875rem", margin: 0 }, children: "Found a bug or have feedback? Lemme know." }), _jsxs("div", { style: {
                                 display: "flex",
                                 gap: "1rem",
                                 fontSize: "0.75rem",
