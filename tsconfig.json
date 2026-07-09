@@ -6,10 +6,11 @@
     "moduleResolution": "node",
     "jsx": "react-jsx",
     "strict": true,
-    "allowJs": true,             // <-- needed for .jsx files
+    "allowJs": true,
     "esModuleInterop": true,
     "skipLibCheck": true,
-    "forceConsistentCasingInFileNames": true
+    "forceConsistentCasingInFileNames": true,
+    "noEmit": true
   },
   "include": ["src/**/*", "vite-env.d.ts"],
   "exclude": ["node_modules", "dist"]

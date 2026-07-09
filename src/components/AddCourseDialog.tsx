@@ -45,7 +45,7 @@ const COLORS = [
 
 interface DaySchedule {
   enabled: boolean;
-  sessions: number;
+  sessions: number | "";
 }
 
 export function AddCourseDialog({
@@ -68,7 +68,7 @@ export function AddCourseDialog({
     if (editCourse) {
       setCourseName(editCourse.name);
       setSelectedColor(editCourse.color);
-      
+
       // Convert classTimes array to schedule object
       const newSchedule: Record<string, DaySchedule> = {
         Monday: { enabled: false, sessions: 1 },
@@ -77,13 +77,16 @@ export function AddCourseDialog({
         Thursday: { enabled: false, sessions: 1 },
         Friday: { enabled: false, sessions: 1 },
       };
-      
+
       editCourse.classTimes.forEach((ct) => {
         if (newSchedule[ct.day]) {
-          newSchedule[ct.day] = { enabled: true, sessions: ct.sessions };
+          newSchedule[ct.day] = {
+            enabled: true,
+            sessions: ct.sessions,
+          };
         }
       });
-      
+
       setSchedule(newSchedule);
     } else {
       setCourseName("");
@@ -105,8 +108,11 @@ export function AddCourseDialog({
     });
   };
 
-  const handleSessionsChange = (day: string, sessions: number) => {
-    const validSessions = Math.max(1, Math.min(5, sessions)); // Between 1-5 sessions
+  const handleSessionsChange = (day: string, sessions: number | "") => {
+    let validSessions = sessions;
+    if (typeof sessions === "number") {
+      validSessions = Math.max(1, Math.min(5, sessions));
+    }
     setSchedule({
       ...schedule,
       [day]: { ...schedule[day], sessions: validSessions },
@@ -118,10 +124,10 @@ export function AddCourseDialog({
 
     // Convert schedule object to classTimes array
     const classTimes: ClassTime[] = WEEKDAYS.filter(
-      (day) => schedule[day].enabled
+      (day) => schedule[day].enabled,
     ).map((day) => ({
       day,
-      sessions: schedule[day].sessions,
+      sessions: (schedule[day].sessions === "" ? 1 : schedule[day].sessions) as number,
     }));
 
     if (classTimes.length === 0) return;
@@ -139,7 +145,8 @@ export function AddCourseDialog({
 
   const enabledDays = WEEKDAYS.filter((day) => schedule[day].enabled).length;
   const totalSessions = WEEKDAYS.reduce((sum, day) => {
-    return sum + (schedule[day].enabled ? schedule[day].sessions : 0);
+    const s = schedule[day].sessions;
+    return sum + (schedule[day].enabled ? (typeof s === "number" ? s : 0) : 0);
   }, 0);
 
   return (
@@ -150,8 +157,8 @@ export function AddCourseDialog({
             {editCourse ? "Edit Course" : "Add New Course"}
           </DialogTitle>
           <DialogDescription>
-            {editCourse 
-              ? "Update your course details, schedule, and color." 
+            {editCourse
+              ? "Update your course details, schedule, and color."
               : "Add a new course with weekly schedule and sessions per day."}
           </DialogDescription>
         </DialogHeader>
@@ -167,7 +174,7 @@ export function AddCourseDialog({
           </div>
 
           <div className="space-y-2">
-            <Label>Course Color</Label>
+            <Label>Course Co0ioolor</Label>
             <div className="flex gap-2">
               {COLORS.map((color) => (
                 <button
@@ -216,9 +223,19 @@ export function AddCourseDialog({
                       min="1"
                       max="5"
                       value={schedule[day].sessions}
-                      onChange={(e) =>
-                        handleSessionsChange(day, parseInt(e.target.value) || 1)
-                      }
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        handleSessionsChange(day, val === "" ? "" : parseInt(val));
+                      }}
+                      onBlur={() => {
+                        if (schedule[day].sessions === "") {
+                          handleSessionsChange(day, 1);
+                        }
+                      }}
+                      onFocus={(e) => {
+                        const target = e.target;
+                        setTimeout(() => target.select(), 0);
+                      }}
                       disabled={!schedule[day].enabled}
                       className="w-20"
                     />
@@ -242,7 +259,16 @@ export function AddCourseDialog({
           <Button variant="outline" onClick={() => onOpenChange(false)}>
             Cancel
           </Button>
-          <Button onClick={handleSubmit} disabled={!courseName.trim() || enabledDays === 0}>
+          <Button
+            onClick={handleSubmit}
+            disabled={
+              !courseName.trim() ||
+              enabledDays === 0 ||
+              WEEKDAYS.some(
+                (day) => schedule[day].enabled && schedule[day].sessions === "",
+              )
+            }
+          >
             {editCourse ? "Save Changes" : "Add Course"}
           </Button>
         </DialogFooter>
