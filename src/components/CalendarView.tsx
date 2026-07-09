@@ -91,10 +91,10 @@ export function CalendarWeeklyView({
   };
 
   const goToPreviousWeek = () =>
-    setSelectedWeekStart((prev) => subWeeks(prev, 1));
+    setSelectedWeekStart((prev: Date) => subWeeks(prev, 1));
 
   const goToNextWeek = () =>
-    setSelectedWeekStart((prev) => addWeeks(prev, 1));
+    setSelectedWeekStart((prev: Date) => addWeeks(prev, 1));
 
   return (
     <div className="space-y-6 text-sm sm:text-base">
