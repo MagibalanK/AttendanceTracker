@@ -185,21 +185,25 @@ const handleAddCompensation = async (
         const dayName = WEEKDAYS[date.getDay()];
         const dateStr = format(date, "yyyy-MM-dd");
 
-        const scheduled = course.classTimes.some(
+        const scheduledCT = course.classTimes.find(
           (ct) => ct.day === dayName
         );
 
-        const exists = records.some(
-          (r) => r.courseId === course.id && r.date === dateStr
-        );
+        if (scheduledCT) {
+          const existingCount = records.filter(
+            (r) => r.courseId === course.id && r.date === dateStr
+          ).length;
 
-        if (scheduled && !exists) {
-          newRecords.push({
-            id: crypto.randomUUID(),
-            courseId: course.id,
-            date: dateStr,
-            status: "nodata",
-          });
+          const toAdd = scheduledCT.sessions - existingCount;
+
+          for (let j = 0; j < toAdd; j++) {
+            newRecords.push({
+              id: crypto.randomUUID(),
+              courseId: course.id,
+              date: dateStr,
+              status: "nodata",
+            });
+          }
         }
       }
     });
@@ -214,7 +218,7 @@ const handleAddCompensation = async (
 
   /* ================= HANDLERS ================= */
 
-  const handleToggleAttendance = async (recordId: string) => {
+  const handleToggleAttendance = async (recordId: string, isCompensation?: boolean) => {
     const record = records.find((r) => r.id === recordId);
     if (!record) return;
 
@@ -223,7 +227,15 @@ const handleAddCompensation = async (
         ? "present"
         : record.status === "present"
         ? "absent"
+        : isCompensation
+        ? "delete"
         : "nodata";
+
+    if (next === "delete") {
+      await supabase.from("attendanceRecords").delete().eq("id", recordId);
+      setRecords((prev) => prev.filter((r) => r.id !== recordId));
+      return;
+    }
 
     await supabase
       .from("attendanceRecords")
