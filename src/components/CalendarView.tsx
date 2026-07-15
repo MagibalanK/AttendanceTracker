@@ -2,6 +2,11 @@ import { useState, useEffect } from "react";
 import { Card } from "./ui/card";
 import { Button } from "./ui/button";
 import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "./ui/popover";
+import {
   CheckCircle2,
   XCircle,
   HelpCircle,
@@ -16,12 +21,16 @@ import {
   addWeeks,
 } from "date-fns";
 
-/* ================= TYPES ================= */
+interface ClassTime {
+  day: string;
+  sessions: number;
+}
 
 interface Course {
   id: string;
   name: string;
   color: string;
+  classTimes: ClassTime[];
 }
 
 interface AttendanceRecord {
@@ -34,9 +43,9 @@ interface AttendanceRecord {
 interface CalendarWeeklyViewProps {
   courses: Course[];
   records: AttendanceRecord[];
-  onToggleAttendance: (recordId: string) => void;
+  onToggleAttendance: (recordId: string, isCompensation?: boolean) => void;
   onWeekChange: (weekStart: Date) => void;
-  onAddCompensation: () => void; // ✅ NEW (callback only)
+  onAddCompensation: () => void;
 }
 
 /* ================= COMPONENT ================= */
@@ -61,9 +70,9 @@ export function CalendarWeeklyView({
       addDays(selectedWeekStart, i)
     );
 
-  const getRecord = (courseId: string, date: Date) => {
+  const getRecords = (courseId: string, date: Date) => {
     const dateStr = format(date, "yyyy-MM-dd");
-    return records.find(
+    return records.filter(
       (r) => r.courseId === courseId && r.date === dateStr
     );
   };
@@ -165,7 +174,11 @@ export function CalendarWeeklyView({
 
                 {getWeekDates().map((date, i) => {
                   const isWeekend = i >= 5;
-                  const record = getRecord(course.id, date);
+                  const dayName = format(date, "EEEE");
+                  const scheduledSessions = course.classTimes.find(ct => ct.day === dayName)?.sessions || 0;
+                  const dayRecords = getRecords(course.id, date);
+                  const totalSessions = Math.max(scheduledSessions, dayRecords.length);
+                  const presentSessions = dayRecords.filter(r => r.status === "present").length;
 
                   return (
                     <td
@@ -174,19 +187,45 @@ export function CalendarWeeklyView({
                         isWeekend ? "hidden sm:table-cell" : ""
                       }`}
                     >
-                      {record ? (
+                      {totalSessions === 0 || dayRecords.length === 0 ? (
+                        <span className="text-gray-300">—</span>
+                      ) : totalSessions === 1 && dayRecords.length === 1 ? (
                         <button
-                          onClick={() =>
-                            onToggleAttendance(record.id)
-                          }
+                          onClick={() => onToggleAttendance(dayRecords[0].id, false)}
                           className={`flex items-center justify-center w-full px-2 py-1 rounded ${getStatusColor(
-                            record.status
+                            dayRecords[0].status
                           )}`}
                         >
-                          {getStatusIcon(record.status)}
+                          {getStatusIcon(dayRecords[0].status)}
                         </button>
                       ) : (
-                        <span className="text-gray-300">—</span>
+                        <Popover>
+                          <PopoverTrigger asChild>
+                            <button className="flex items-center justify-center w-full px-2 py-1 rounded bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700 text-xs sm:text-sm font-medium">
+                              {presentSessions}/{dayRecords.length}
+                            </button>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-48 p-2 flex flex-col gap-2">
+                            <div className="text-sm font-semibold mb-1 text-center">
+                              {format(date, "EEE dd/MM")} - {course.name}
+                            </div>
+                            {dayRecords.map((record, idx) => {
+                              const isCompensation = idx >= scheduledSessions;
+                              return (
+                                <button
+                                  key={record.id}
+                                  onClick={() => onToggleAttendance(record.id, isCompensation)}
+                                  className={`flex items-center justify-between w-full px-3 py-2 rounded text-sm transition-opacity hover:opacity-80 ${getStatusColor(
+                                    record.status
+                                  )}`}
+                                >
+                                  <span>{isCompensation ? "Compensation" : `Session ${idx + 1}`}</span>
+                                  {getStatusIcon(record.status)}
+                                </button>
+                              );
+                            })}
+                          </PopoverContent>
+                        </Popover>
                       )}
                     </td>
                   );
