@@ -6,6 +6,7 @@ import { useAuth } from "../AuthContext";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { Toaster } from "../components/ui/sonner";
+import { FcGoogle } from "react-icons/fc";
 
 interface SignInResult {
   success: boolean;
@@ -21,7 +22,7 @@ export default function Signup() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [isFocused, setIsFocused] = useState(false);
-  const { signInUser } = useAuth();
+  const { signInUser, signInWithGoogle } = useAuth();
   const navigate = useNavigate();
 
   const toggleTheme = () => {
@@ -415,6 +416,42 @@ const [error, handleSubmitWithState, isPending] = useActionState(
                   </button>
                 )}
               </motion.div>
+            </motion.div>
+            
+            <motion.div
+              style={{ textAlign: "center", paddingTop: "8px" }}
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ delay: 0.7, duration: 0.5 }}
+            >
+              <div style={{ display: "flex", alignItems: "center", margin: "8px 0 24px 0" }}>
+                <div style={{ flex: 1, height: "1px", backgroundColor: isDark ? "#374151" : "#e5e7eb" }} />
+                <span style={{ padding: "0 16px", color: isDark ? "#9ca3af" : "#6b7280", fontSize: "14px" }}>or</span>
+                <div style={{ flex: 1, height: "1px", backgroundColor: isDark ? "#374151" : "#e5e7eb" }} />
+              </div>
+              
+              <button
+                type="button"
+                onClick={signInWithGoogle}
+                className="btn"
+                style={{
+                  width: "100%",
+                  height: "56px",
+                  borderRadius: "16px",
+                  backgroundColor: isDark ? "#1f2937" : "#ffffff",
+                  border: `2px solid ${isDark ? "#374151" : "#e5e7eb"}`,
+                  color: isDark ? "#f3f4f6" : "#111827",
+                  fontSize: "16px",
+                  fontWeight: "500",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  gap: "12px",
+                }}
+              >
+                <FcGoogle size={24} />
+                Sign up with Google
+              </button>
             </motion.div>
           </form>
 

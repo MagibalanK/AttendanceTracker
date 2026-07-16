@@ -3,6 +3,7 @@ import { Sun, Moon, PawPrint as Sparkles } from "lucide-react";
 import { motion } from "motion/react";
 import { useAuth } from "../AuthContext";
 import { useNavigate, Link } from 'react-router-dom';
+import { FcGoogle } from "react-icons/fc";
 
 
 
@@ -16,7 +17,7 @@ interface SignInResult {
 
 export default function App() {
   const navigate = useNavigate();
-  const { signInUser } = useAuth();
+  const { signInUser, signInWithGoogle } = useAuth();
   const [theme, setTheme] = useState<"light" | "dark">("dark");
   const [email, setEmail] = useState<string>("");
   const [password, setPassword] = useState<string>("");
@@ -373,7 +374,34 @@ export default function App() {
               animate={{ opacity: 1 }}
               transition={{ delay: 0.6, duration: 0.5 }}
             >
-    
+              <div style={{ display: "flex", alignItems: "center", margin: "8px 0 24px 0" }}>
+                <div style={{ flex: 1, height: "1px", backgroundColor: isDark ? "#374151" : "#e5e7eb" }} />
+                <span style={{ padding: "0 16px", color: isDark ? "#9ca3af" : "#6b7280", fontSize: "14px" }}>or</span>
+                <div style={{ flex: 1, height: "1px", backgroundColor: isDark ? "#374151" : "#e5e7eb" }} />
+              </div>
+              
+              <button
+                type="button"
+                onClick={signInWithGoogle}
+                className="btn"
+                style={{
+                  width: "100%",
+                  height: "56px",
+                  borderRadius: "16px",
+                  backgroundColor: isDark ? "#1f2937" : "#ffffff",
+                  border: `2px solid ${isDark ? "#374151" : "#e5e7eb"}`,
+                  color: isDark ? "#f3f4f6" : "#111827",
+                  fontSize: "16px",
+                  fontWeight: "500",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  gap: "12px",
+                }}
+              >
+                <FcGoogle size={24} />
+                Continue with Google
+              </button>
             </motion.div>
           </form>
      {error && (
