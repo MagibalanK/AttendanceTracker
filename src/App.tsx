@@ -19,6 +19,7 @@ import {
   DropdownMenuTrigger,
 } from "./components/ui/dropdown-menu";
 import { Toaster } from "./components/ui/sonner";
+import { toast } from "sonner";
 
 /* ================= TYPES ================= */
 
