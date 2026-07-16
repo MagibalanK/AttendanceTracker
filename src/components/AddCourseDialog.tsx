@@ -174,7 +174,7 @@ export function AddCourseDialog({
           </div>
 
           <div className="space-y-2">
-            <Label>Course Co0ioolor</Label>
+            <Label>Course Colour</Label>
             <div className="flex gap-2">
               {COLORS.map((color) => (
                 <button
