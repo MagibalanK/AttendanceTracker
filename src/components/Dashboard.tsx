@@ -40,11 +40,12 @@ export function Dashboard({
   onEditCourse,
   onDeleteCourse,
 }: DashboardProps) {
-  const getCoursePercentage = (courseId: string) => {
+  const getCourseStats = (courseId: string) => {
     const courseRecords = records.filter((r) => r.courseId === courseId);
     const presentCount = courseRecords.filter((r) => r.status === "present").length;
     const totalCount = courseRecords.filter((r) => r.status !== "nodata").length;
-    return totalCount > 0 ? (presentCount / totalCount) * 100 : 0;
+    const percentage = totalCount > 0 ? (presentCount / totalCount) * 100 : 0;
+    return { attended: presentCount, conducted: totalCount, percentage };
   };
 
   const getWeeklyStats = () => {
@@ -119,19 +120,23 @@ export function Dashboard({
           </Card>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {courses.map((course) => (
+            {courses.map((course) => {
+              const stats = getCourseStats(course.id);
+              return (
               <CourseCard
                 key={course.id}
                 id={course.id}
                 name={course.name}
                 color={course.color}
-                percentage={getCoursePercentage(course.id)}
+                percentage={stats.percentage}
+                attended={stats.attended}
+                conducted={stats.conducted}
                 classTimes={course.classTimes}
                 onView={() => onViewCourse(course.id)}
                 onEdit={() => onEditCourse(course)}
                 onDelete={() => onDeleteCourse(course.id)}
               />
-            ))}
+            )})}
           </div>
         )}
       </div>

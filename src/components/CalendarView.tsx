@@ -6,6 +6,8 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "./ui/popover";
+import { Switch } from "./ui/switch";
+import { Label } from "./ui/label";
 import {
   CheckCircle2,
   XCircle,
@@ -60,15 +62,18 @@ export function CalendarWeeklyView({
   const [selectedWeekStart, setSelectedWeekStart] = useState<Date>(
     startOfWeek(new Date(), { weekStartsOn: 1 })
   );
+  const [showWeekends, setShowWeekends] = useState(false);
 
   useEffect(() => {
     onWeekChange(selectedWeekStart);
   }, [selectedWeekStart, onWeekChange]);
 
-  const getWeekDates = () =>
-    Array.from({ length: 7 }).map((_, i) =>
+  const getWeekDates = () => {
+    const dates = Array.from({ length: 7 }).map((_, i) =>
       addDays(selectedWeekStart, i)
     );
+    return showWeekends ? dates : dates.slice(0, 5);
+  };
 
   const getRecords = (courseId: string, date: Date) => {
     const dateStr = format(date, "yyyy-MM-dd");
@@ -113,7 +118,16 @@ export function CalendarWeeklyView({
           Weekly Timetable
         </h1>
 
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="flex items-center space-x-2 mr-2">
+            <Switch
+              id="show-weekends"
+              checked={showWeekends}
+              onCheckedChange={setShowWeekends}
+            />
+            <Label htmlFor="show-weekends" className="text-sm font-medium text-gray-600 dark:text-gray-400">Weekends</Label>
+          </div>
+
           <Button
             variant="outline"
             size="sm"
@@ -145,19 +159,14 @@ export function CalendarWeeklyView({
               <th className="w-1/6 border p-2 sticky left-0 bg-white dark:bg-gray-900">
                 Course
               </th>
-              {getWeekDates().map((date, i) => {
-                const isWeekend = i >= 5;
-                return (
+              {getWeekDates().map((date) => (
                   <th
                     key={date.toISOString()}
-                    className={`border p-2 text-center ${
-                      isWeekend ? "hidden sm:table-cell" : ""
-                    }`}
+                    className="border p-2 text-center"
                   >
                     {format(date, "EEE dd/MM")}
                   </th>
-                );
-              })}
+              ))}
             </tr>
           </thead>
 
@@ -172,8 +181,7 @@ export function CalendarWeeklyView({
                   <span className="truncate">{course.name}</span>
                 </td>
 
-                {getWeekDates().map((date, i) => {
-                  const isWeekend = i >= 5;
+                {getWeekDates().map((date) => {
                   const dayName = format(date, "EEEE");
                   const scheduledSessions = course.classTimes.find(ct => ct.day === dayName)?.sessions || 0;
                   const dayRecords = getRecords(course.id, date);
@@ -183,9 +191,7 @@ export function CalendarWeeklyView({
                   return (
                     <td
                       key={date.toISOString()}
-                      className={`border p-1 text-center ${
-                        isWeekend ? "hidden sm:table-cell" : ""
-                      }`}
+                      className="border p-1 text-center"
                     >
                       {totalSessions === 0 || dayRecords.length === 0 ? (
                         <span className="text-gray-300">—</span>

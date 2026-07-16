@@ -2,19 +2,26 @@ import { Card } from "./ui/card";
 import { Button } from "./ui/button";
 import { Progress } from "./ui/progress";
 import { Badge } from "./ui/badge";
-import { MoreVertical, Calendar } from "lucide-react";
+import { Calendar, Edit2, Trash2 } from "lucide-react";
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "./ui/dropdown-menu";
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "./ui/alert-dialog";
 
 interface CourseCardProps {
   id: string;
   name: string;
   color: string;
   percentage: number;
+  attended: number;
+  conducted: number;
   classTimes: Array<{ day: string; sessions: number }>;
   onView: () => void;
   onEdit: () => void;
@@ -35,6 +42,8 @@ export function CourseCard({
   name,
   color,
   percentage,
+  attended,
+  conducted,
   classTimes,
   onView,
   onEdit,
@@ -47,6 +56,29 @@ export function CourseCard({
   );
 
   const totalSessions = classTimes.reduce((sum, ct) => sum + ct.sessions, 0);
+
+  const targetPercentage = 75;
+  const bunksLeft = Math.max(
+    0,
+    Math.floor(attended - (targetPercentage * conducted) / 100)
+  );
+
+  const calculateRecover = () => {
+    if (percentage >= targetPercentage) return 0;
+    let t = conducted;
+    let a = attended;
+    let c = 0;
+    if (t === 0) return 1;
+    while ((a / t) * 100 < targetPercentage) {
+      t++;
+      a++;
+      c++;
+      if (c > 500) break;
+    }
+    return c;
+  };
+
+  const classesToRecover = calculateRecover();
 
   return (
     <Card
@@ -63,30 +95,39 @@ export function CourseCard({
             {name}
           </h3>
         </div>
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild onClick={(e:React.MouseEvent) => e.stopPropagation()}>
-            <Button variant="ghost" size="icon" className="h-8 w-8">
-              <MoreVertical className="h-4 w-4" />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
-            <DropdownMenuItem onClick={(e:React.MouseEvent) => {
-              e.stopPropagation();
-              onEdit();
-            }}>
-              Edit
-            </DropdownMenuItem>
-            <DropdownMenuItem 
-              onClick={(e:React.MouseEvent) => {
-                e.stopPropagation();
-                onDelete();
-              }}
-              className="text-red-600"
-            >
-              Delete
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
+        <div className="flex gap-1" onClick={(e) => e.stopPropagation()}>
+          <Button variant="ghost" size="icon" className="h-8 w-8 text-gray-500 hover:text-blue-600" onClick={(e) => { e.stopPropagation(); onEdit(); }}>
+            <Edit2 className="h-4 w-4" />
+          </Button>
+
+          <AlertDialog>
+            <AlertDialogTrigger asChild>
+              <Button variant="ghost" size="icon" className="h-8 w-8 text-gray-500 hover:text-red-600" onClick={(e) => e.stopPropagation()}>
+                <Trash2 className="h-4 w-4" />
+              </Button>
+            </AlertDialogTrigger>
+            <AlertDialogContent onClick={(e) => e.stopPropagation()}>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Delete Course</AlertDialogTitle>
+                <AlertDialogDescription>
+                  Are you sure you want to delete {name}? This action cannot be undone.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel onClick={(e) => e.stopPropagation()}>Cancel</AlertDialogCancel>
+                <AlertDialogAction 
+                  onClick={(e) => { 
+                    e.stopPropagation(); 
+                    onDelete(); 
+                  }}
+                  className="bg-red-600 hover:bg-red-700 text-white"
+                >
+                  Delete
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+        </div>
       </div>
 
       <div className="mb-4 space-y-2">
@@ -109,12 +150,27 @@ export function CourseCard({
 
       <div className="space-y-2">
         <div className="flex justify-between text-sm">
-          <span className="text-gray-600 dark:text-gray-400">Attendance</span>
+          <span className="text-gray-600 dark:text-gray-400">
+            Attendance <span className="text-xs ml-1 opacity-70">({attended}/{conducted})</span>
+          </span>
           <span className={percentage >= 75 ? "text-green-600" : "text-red-600"}>
             {percentage.toFixed(1)}%
           </span>
         </div>
         <Progress value={percentage} className="h-2" />
+        {conducted > 0 && (
+          <div className="flex justify-between text-xs mt-1 pt-1">
+            {percentage >= 75 ? (
+              <span className={bunksLeft === 0 ? "text-gray-500 dark:text-gray-400 font-medium" : "text-green-600 dark:text-green-400 font-medium"}>
+                {bunksLeft} bunk{bunksLeft !== 1 ? 's' : ''} left
+              </span>
+            ) : (
+              <span className="text-red-600 dark:text-red-400 font-medium">
+                {classesToRecover} class{classesToRecover !== 1 ? 'es' : ''} to recover
+              </span>
+            )}
+          </div>
+        )}
       </div>
     </Card>
   );
