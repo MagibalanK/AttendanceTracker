@@ -201,8 +201,25 @@ export function CalendarWeeklyView({
                       ) : (
                         <Popover>
                           <PopoverTrigger asChild>
-                            <button className="flex items-center justify-center w-full px-2 py-1 rounded bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700 text-xs sm:text-sm font-medium">
-                              {presentSessions}/{dayRecords.length}
+                            <button className={`relative overflow-hidden flex items-center justify-center w-full px-2 py-1 rounded text-xs sm:text-sm font-medium transition-colors hover:opacity-90 ${
+                              presentSessions === dayRecords.length && dayRecords.length > 0
+                                ? "bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300 hover:bg-green-200 dark:hover:bg-green-800"
+                                : "text-gray-700 dark:text-gray-300"
+                            }`}>
+                              {presentSessions !== dayRecords.length && (
+                                <div className="absolute inset-0 flex z-0">
+                                  {dayRecords.map((r) => (
+                                    <div key={r.id} className={`flex-1 opacity-80 ${
+                                      r.status === 'present' ? 'bg-green-100 dark:bg-green-900' :
+                                      r.status === 'absent' ? 'bg-red-100 dark:bg-red-900' :
+                                      'bg-gray-100 dark:bg-gray-800'
+                                    }`} />
+                                  ))}
+                                </div>
+                              )}
+                              <span className="relative z-10">
+                                {presentSessions}/{dayRecords.length}
+                              </span>
                             </button>
                           </PopoverTrigger>
                           <PopoverContent className="w-48 p-2 flex flex-col gap-2">

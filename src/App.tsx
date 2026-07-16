@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { Dashboard } from "./components/Dashboard";
 import { CalendarWeeklyView } from "./components/CalendarView";
 import Analytics from "./components/Analytics"
@@ -117,9 +117,7 @@ const { totalClasses, attendedClasses } =
   
   }, [isDarkMode]);
 
-const handleWeekChange = (weekStart: Date) => {
-  ensureAttendanceForWeek(weekStart);
-};
+
 
   /* ================= LOAD DATA ================= */
 
@@ -173,13 +171,22 @@ const handleAddCompensation = async (
 
   /* ================= ATTENDANCE GENERATION ================= */
 
-  const ensureAttendanceForWeek = async (weekStart: Date) => {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
+  const isGeneratingRef = useRef(false);
 
-    const newRecords: AttendanceRecord[] = [];
+  const ensureAttendanceForWeek = useCallback(async (weekStart: Date) => {
+    if (isGeneratingRef.current) return;
+    isGeneratingRef.current = true;
 
-    courses.forEach((course) => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const newRecords: AttendanceRecord[] = [];
+
+      // We need to use the LATEST state, not the closure state if possible,
+      // but since we rely on `courses` and `records` from closure, we'll
+      // at least prevent concurrent strict-mode execution.
+      courses.forEach((course) => {
       for (let i = 0; i < 7; i++) {
         const date = addDays(weekStart, i);
         const dayName = WEEKDAYS[date.getDay()];
@@ -208,13 +215,25 @@ const handleAddCompensation = async (
       }
     });
 
-    if (newRecords.length > 0) {
-      await supabase.from("attendanceRecords").insert(
-        newRecords.map((r) => ({ ...r, userId: user.id }))
-      );
-      setRecords((prev) => [...prev, ...newRecords]);
+      if (newRecords.length > 0) {
+        const { error } = await supabase.from("attendanceRecords").insert(
+          newRecords.map((r) => ({ ...r, userId: user.id }))
+        );
+        if (error) {
+          console.error("Error generating attendance records:", error);
+          toast.error("Failed to generate attendance records: " + error.message);
+          return;
+        }
+        setRecords((prev) => [...prev, ...newRecords]);
+      }
+    } finally {
+      isGeneratingRef.current = false;
     }
-  };
+  }, [courses, records]);
+
+  const handleWeekChange = useCallback((weekStart: Date) => {
+    ensureAttendanceForWeek(weekStart);
+  }, [ensureAttendanceForWeek]);
 
   /* ================= HANDLERS ================= */
 
@@ -232,15 +251,26 @@ const handleAddCompensation = async (
         : "nodata";
 
     if (next === "delete") {
-      await supabase.from("attendanceRecords").delete().eq("id", recordId);
+      const { error } = await supabase.from("attendanceRecords").delete().eq("id", recordId);
+      if (error) {
+        console.error("Error deleting attendance record:", error);
+        toast.error("Failed to delete record: " + error.message);
+        return;
+      }
       setRecords((prev) => prev.filter((r) => r.id !== recordId));
       return;
     }
 
-    await supabase
+    const { error } = await supabase
       .from("attendanceRecords")
       .update({ status: next })
       .eq("id", recordId);
+
+    if (error) {
+      console.error("Error updating attendance record:", error);
+      toast.error("Failed to update record: " + error.message);
+      return;
+    }
 
     setRecords((prev) =>
       prev.map((r) =>
@@ -281,7 +311,12 @@ const handleAddCompensation = async (
         ...course,
       };
 
-      await supabase.from("courses").insert(newCourse);
+      const { error } = await supabase.from("courses").insert(newCourse);
+      if (error) {
+        console.error("Error saving course:", error);
+        toast.error("Failed to save course: " + error.message);
+        return;
+      }
       setCourses((prev) => [...prev, newCourse]);
     }
 
