@@ -33,7 +33,7 @@ export default function Analytics({
 
   const bunksLeft = Math.max(
     0,
-    Math.floor(attendedClasses - (targetPercentage * totalClasses) / 100)
+    Math.floor(attendedClasses * 100 / targetPercentage - totalClasses)
   );
 
   const calculateRecover = () => {

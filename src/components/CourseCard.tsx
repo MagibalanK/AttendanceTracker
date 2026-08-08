@@ -60,7 +60,7 @@ export function CourseCard({
   const targetPercentage = 75;
   const bunksLeft = Math.max(
     0,
-    Math.floor(attended - (targetPercentage * conducted) / 100)
+    Math.floor(attended * 100 / targetPercentage - conducted)
   );
 
   const calculateRecover = () => {

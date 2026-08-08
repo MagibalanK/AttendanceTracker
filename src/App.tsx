@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { Dashboard } from "./components/Dashboard";
 import { CalendarWeeklyView } from "./components/CalendarView";
-import Analytics from "./components/Analytics"
+import Analytics from "./components/Analytics";
 import { AddCourseDialog } from "./components/AddCourseDialog";
 import { ImportCoursesDialog } from "./components/ImportCoursesDialog";
 import supabase from "./supabaseClient";
@@ -77,25 +77,22 @@ export default function App() {
   const [showImportDialog, setShowImportDialog] = useState(false);
   const [editingCourse, setEditingCourse] = useState<Course | null>(null);
 
-  
-  
-  function deriveAttendanceStats(
-  records: AttendanceRecord[]
-): { totalClasses: number; attendedClasses: number } {
-  const conducted = records.filter(
-    r => r.status === "present" || r.status === "absent"
-  );
+  function deriveAttendanceStats(records: AttendanceRecord[]): {
+    totalClasses: number;
+    attendedClasses: number;
+  } {
+    const conducted = records.filter(
+      (r) => r.status === "present" || r.status === "absent",
+    );
 
-  const attended = conducted.filter(r => r.status === "present");
+    const attended = conducted.filter((r) => r.status === "present");
 
-  return {
-    totalClasses: conducted.length,
-    attendedClasses: attended.length,
-  };
-}
-const { totalClasses, attendedClasses } =
-  deriveAttendanceStats(records);
-
+    return {
+      totalClasses: conducted.length,
+      attendedClasses: attended.length,
+    };
+  }
+  const { totalClasses, attendedClasses } = deriveAttendanceStats(records);
 
   /* ================= AUTH ================= */
 
@@ -115,42 +112,39 @@ const { totalClasses, attendedClasses } =
   useEffect(() => {
     document.documentElement.classList.toggle("dark", isDarkMode);
     localStorage.setItem("attendanceTheme", isDarkMode ? "dark" : "light");
-  
   }, [isDarkMode]);
-
-
 
   /* ================= LOAD DATA ================= */
 
+  const handleAddCompensation = async (
+    courseId: string,
+    date: string,
+    sessions: number,
+    status: "present" | "absent",
+  ) => {
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
 
-const handleAddCompensation = async (
-  courseId: string,
-  date: string,
-  sessions: number,
-  status: "present" | "absent"
-) => {
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+    if (!user) return;
 
-  if (!user) return;
+    const newRecords = Array.from({ length: sessions }).map(() => ({
+      id: crypto.randomUUID(),
+      courseId,
+      date,
+      status,
+      userId: user.id,
+    }));
 
-  const newRecords = Array.from({ length: sessions }).map(() => ({
-    id: crypto.randomUUID(),
-    courseId,
-    date,
-    status,
-    userId: user.id,
-  }));
-
-  await supabase.from("attendanceRecords").insert(newRecords);
-  setRecords((prev) => [...prev, ...newRecords]);
-};
-
+    await supabase.from("attendanceRecords").insert(newRecords);
+    setRecords((prev) => [...prev, ...newRecords]);
+  };
 
   useEffect(() => {
     const loadData = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
       if (!user) return;
 
       const { data: courseData } = await supabase
@@ -174,71 +168,84 @@ const handleAddCompensation = async (
 
   const isGeneratingRef = useRef(false);
 
-  const ensureAttendanceForWeek = useCallback(async (weekStart: Date) => {
-    if (isGeneratingRef.current) return;
-    isGeneratingRef.current = true;
+  const ensureAttendanceForWeek = useCallback(
+    async (weekStart: Date) => {
+      if (isGeneratingRef.current) return;
+      isGeneratingRef.current = true;
 
-    try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
+      try {
+        const {
+          data: { user },
+        } = await supabase.auth.getUser();
+        if (!user) return;
 
-      const newRecords: AttendanceRecord[] = [];
+        const newRecords: AttendanceRecord[] = [];
 
-      // We need to use the LATEST state, not the closure state if possible,
-      // but since we rely on `courses` and `records` from closure, we'll
-      // at least prevent concurrent strict-mode execution.
-      courses.forEach((course) => {
-      for (let i = 0; i < 7; i++) {
-        const date = addDays(weekStart, i);
-        const dayName = WEEKDAYS[date.getDay()];
-        const dateStr = format(date, "yyyy-MM-dd");
+        // We need to use the LATEST state, not the closure state if possible,
+        // but since we rely on `courses` and `records` from closure, we'll
+        // at least prevent concurrent strict-mode execution.
+        courses.forEach((course) => {
+          for (let i = 0; i < 7; i++) {
+            const date = addDays(weekStart, i);
+            const dayName = WEEKDAYS[date.getDay()];
+            const dateStr = format(date, "yyyy-MM-dd");
 
-        const scheduledCT = course.classTimes.find(
-          (ct) => ct.day === dayName
-        );
+            const scheduledCT = course.classTimes.find(
+              (ct) => ct.day === dayName,
+            );
 
-        if (scheduledCT) {
-          const existingCount = records.filter(
-            (r) => r.courseId === course.id && r.date === dateStr
-          ).length;
+            if (scheduledCT) {
+              const existingCount = records.filter(
+                (r) => r.courseId === course.id && r.date === dateStr,
+              ).length;
 
-          const toAdd = scheduledCT.sessions - existingCount;
+              const toAdd = scheduledCT.sessions - existingCount;
 
-          for (let j = 0; j < toAdd; j++) {
-            newRecords.push({
-              id: crypto.randomUUID(),
-              courseId: course.id,
-              date: dateStr,
-              status: "nodata",
-            });
+              for (let j = 0; j < toAdd; j++) {
+                newRecords.push({
+                  id: crypto.randomUUID(),
+                  courseId: course.id,
+                  date: dateStr,
+                  status: "nodata",
+                });
+              }
+            }
           }
-        }
-      }
-    });
+        });
 
-      if (newRecords.length > 0) {
-        const { error } = await supabase.from("attendanceRecords").insert(
-          newRecords.map((r) => ({ ...r, userId: user.id }))
-        );
-        if (error) {
-          console.error("Error generating attendance records:", error);
-          toast.error("Failed to generate attendance records: " + error.message);
-          return;
+        if (newRecords.length > 0) {
+          const { error } = await supabase
+            .from("attendanceRecords")
+            .insert(newRecords.map((r) => ({ ...r, userId: user.id })));
+          if (error) {
+            console.error("Error generating attendance records:", error);
+            toast.error(
+              "Failed to generate attendance records: " + error.message,
+            );
+            return;
+          }
+          setRecords((prev) => [...prev, ...newRecords]);
         }
-        setRecords((prev) => [...prev, ...newRecords]);
+      } finally {
+        isGeneratingRef.current = false;
       }
-    } finally {
-      isGeneratingRef.current = false;
-    }
-  }, [courses, records]);
+    },
+    [courses, records],
+  );
 
-  const handleWeekChange = useCallback((weekStart: Date) => {
-    ensureAttendanceForWeek(weekStart);
-  }, [ensureAttendanceForWeek]);
+  const handleWeekChange = useCallback(
+    (weekStart: Date) => {
+      ensureAttendanceForWeek(weekStart);
+    },
+    [ensureAttendanceForWeek],
+  );
 
   /* ================= HANDLERS ================= */
 
-  const handleToggleAttendance = async (recordId: string, isCompensation?: boolean) => {
+  const handleToggleAttendance = async (
+    recordId: string,
+    isCompensation?: boolean,
+  ) => {
     const record = records.find((r) => r.id === recordId);
     if (!record) return;
 
@@ -246,13 +253,16 @@ const handleAddCompensation = async (
       record.status === "nodata"
         ? "present"
         : record.status === "present"
-        ? "absent"
-        : isCompensation
-        ? "delete"
-        : "nodata";
+          ? "absent"
+          : isCompensation
+            ? "delete"
+            : "nodata";
 
     if (next === "delete") {
-      const { error } = await supabase.from("attendanceRecords").delete().eq("id", recordId);
+      const { error } = await supabase
+        .from("attendanceRecords")
+        .delete()
+        .eq("id", recordId);
       if (error) {
         console.error("Error deleting attendance record:", error);
         toast.error("Failed to delete record: " + error.message);
@@ -274,9 +284,7 @@ const handleAddCompensation = async (
     }
 
     setRecords((prev) =>
-      prev.map((r) =>
-        r.id === recordId ? { ...r, status: next } : r
-      )
+      prev.map((r) => (r.id === recordId ? { ...r, status: next } : r)),
     );
   };
 
@@ -285,10 +293,10 @@ const handleAddCompensation = async (
     setCurrentView("course");
   };
 
-  const handleSaveCourse = async (
-    course: Course | Omit<Course, "id">
-  ) => {
-    const { data: { user } } = await supabase.auth.getUser();
+  const handleSaveCourse = async (course: Course | Omit<Course, "id">) => {
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
     if (!user) return;
 
     if ("id" in course) {
@@ -302,9 +310,7 @@ const handleAddCompensation = async (
         .eq("id", course.id)
         .eq("userId", user.id);
 
-      setCourses((prev) =>
-        prev.map((c) => (c.id === course.id ? course : c))
-      );
+      setCourses((prev) => prev.map((c) => (c.id === course.id ? course : c)));
     } else {
       const newCourse: Course & { userId: string } = {
         id: crypto.randomUUID(),
@@ -326,7 +332,9 @@ const handleAddCompensation = async (
   };
 
   const handleDeleteCourse = async (courseId: string) => {
-    const { data: { user } } = await supabase.auth.getUser();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
     if (!user) return;
 
     await supabase
@@ -351,7 +359,9 @@ const handleAddCompensation = async (
   };
 
   const handleImportCourses = async (imported: Course[]) => {
-    const { data: { user } } = await supabase.auth.getUser();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
     if (!user) return;
 
     const rows = imported.map((c) => ({
@@ -380,20 +390,21 @@ const handleAddCompensation = async (
 
       <nav className="sticky top-0 z-50 border-b bg-white dark:bg-gray-800 shadow-sm h-[100px]">
         <div className="max-w-7xl mx-auto px-4 py-3 flex items-center justify-between">
-<button
-  onClick={() => currentView !== "dashboard" && setCurrentView("dashboard")}
-  className="flex items-center gap-2"
->
-  {currentView !== "dashboard" && (
-    <span className="text-sm opacity-70">← Back</span>
-  )}
-  <img
-    src={isDarkMode ? "/darkcar.png" : "/lightcar.png"}
-    className="h-10 w-10"
-    alt="navigation"
-  />
-</button>
-
+          <button
+            onClick={() =>
+              currentView !== "dashboard" && setCurrentView("dashboard")
+            }
+            className="flex items-center gap-2"
+          >
+            {currentView !== "dashboard" && (
+              <span className="text-sm opacity-70">← Back</span>
+            )}
+            <img
+              src={isDarkMode ? "/darkcar.png" : "/lightcar.png"}
+              className="h-10 w-10"
+              alt="navigation"
+            />
+          </button>
 
           <h1 className="text-lg text-gray-800 dark:text-gray-100">
             Attendance Tracker
@@ -406,16 +417,15 @@ const handleAddCompensation = async (
               className="rounded-full bg-indigo-600 hover:bg-indigo-700 text-white"
             >
               <Plus
-  size={20}
-  className={isDarkMode ? "text-white" : "text-gray-900"}
-/>
-
+                size={20}
+                className={isDarkMode ? "text-white" : "text-gray-900"}
+              />
             </Button>
 
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="ghost" size="icon">
-                  <User size={20}/>
+                  <User size={20} />
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
@@ -455,37 +465,34 @@ const handleAddCompensation = async (
         )}
 
         {currentView === "calendar" && (
-<CalendarWeeklyView
-  courses={courses}
-  records={records}
-  onToggleAttendance={handleToggleAttendance}
-  onWeekChange={handleWeekChange}
-  onAddCompensation={() => setShowCompDialog(true)}
-/>
-
+          <CalendarWeeklyView
+            courses={courses}
+            records={records}
+            onToggleAttendance={handleToggleAttendance}
+            onWeekChange={handleWeekChange}
+            onAddCompensation={() => setShowCompDialog(true)}
+          />
         )}
 
         {currentView === "course" && selectedCourse && (
-    
-<Analytics
-  totalClasse={records.filter(r => r.courseId === selectedCourse.id).reduce((count, r) => {
-      if (r.status === "present" || r.status === "absent") {
-        return count + 1;
-      }
-      return count;
-    }, 0)}
-attendedClasse={
-  records
-    .filter(r => r.courseId === selectedCourse.id)
-    .reduce((count, r) => {
-      if (r.status === "present") {
-        return count + 1;
-      }
-      return count;
-    }, 0)
-}
-
-/>
+          <Analytics
+            totalClasse={records
+              .filter((r) => r.courseId === selectedCourse.id)
+              .reduce((count, r) => {
+                if (r.status === "present" || r.status === "absent") {
+                  return count + 1;
+                }
+                return count;
+              }, 0)}
+            attendedClasse={records
+              .filter((r) => r.courseId === selectedCourse.id)
+              .reduce((count, r) => {
+                if (r.status === "present") {
+                  return count + 1;
+                }
+                return count;
+              }, 0)}
+          />
         )}
       </main>
 
@@ -495,85 +502,63 @@ attendedClasse={
         onSave={handleSaveCourse}
         editCourse={editingCourse}
       />
-    
-<AddCompensationDialog
-  open={showCompDialog}
-  onOpenChange={setShowCompDialog}
-  courses={courses}
-  onSubmit={handleAddCompensation}
-/>
+
+      <AddCompensationDialog
+        open={showCompDialog}
+        onOpenChange={setShowCompDialog}
+        courses={courses}
+        onSubmit={handleAddCompensation}
+      />
 
       <ImportCoursesDialog
         open={showImportDialog}
         onOpenChange={setShowImportDialog}
         onImport={handleImportCourses}
       />
-<footer
-  style={{
-    marginTop: "3rem",
-    padding: "1.5rem 0",
-    borderTop: "1px solid var(--border)",
-    color: "var(--muted-foreground)",
-  }}
->
-  <div
-    style={{
-      maxWidth: "1280px",
-      margin: "0 auto",
-      padding: "0 1.5rem",
-      display: "flex",
-      flexDirection: "column",
-      gap: "0.75rem",
-      alignItems: "center",
-      textAlign: "center",
-    }}
-  >
-<p style={{ fontSize: "0.875rem", margin: 0 }}>
-Found a bug or have feedback? Lemme know.
-</p>
+      <footer
+        style={{
+          marginTop: "3rem",
+          padding: "1.5rem 0",
+          borderTop: "1px solid var(--border)",
+          color: "var(--muted-foreground)",
+        }}
+      >
+        <div
+          style={{
+            maxWidth: "1280px",
+            margin: "0 auto",
+            padding: "0 1.5rem",
+            display: "flex",
+            flexDirection: "column",
+            gap: "0.75rem",
+            alignItems: "center",
+            textAlign: "center",
+          }}
+        >
+          <p style={{ fontSize: "0.875rem", margin: 0 }}>
+            Found a bug or have feedback? Lemme know.
+          </p>
 
-    <div
-      style={{
-        display: "flex",
-        gap: "1rem",
-        fontSize: "0.75rem",
-      }}
-    >
-      <a
-        href="https://github.com/WhyDeezz"
-        target="_blank"
-        rel="noopener noreferrer"
-        style={{ color: "inherit", textDecoration: "none" }}
-      >
-        GitHub
-      </a>
-      <span>•</span>
-      <a
-        href="https://www.linkedin.com/in/vaithiesh-jayasankar-2b2586376/"
-        target="_blank"
-        rel="noopener noreferrer"
-        style={{ color: "inherit", textDecoration: "none" }}
-      >
-        LinkedIn
-      </a>
-      <span>•</span>
-      <a
-        href="https://www.instagram.com/why_deezz/"
-        target="_blank"
-        rel="noopener noreferrer"
-        style={{ color: "inherit", textDecoration: "none" }}
-      >
-        Instagram
-      </a>
-      <span>•</span>
-      <span>© {new Date().getFullYear()}</span>
+          <div
+            style={{
+              display: "flex",
+              gap: "1rem",
+              fontSize: "0.75rem",
+            }}
+          >
+            <a
+              href="https://github.com/MagibalanK"
+              target="_blank"
+              rel="noopener noreferrer"
+              style={{ color: "inherit", textDecoration: "none" }}
+            >
+              GitHub
+            </a>
+            <span>•</span>
+            <span>© {new Date().getFullYear()}</span>
+          </div>
+        </div>
+      </footer>
     </div>
-
-  </div>
-
-</footer>
-
-    </div>
-
   );
 }
