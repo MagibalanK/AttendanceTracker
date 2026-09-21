@@ -1,11 +1,7 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Card } from "./ui/card";
 import { Button } from "./ui/button";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "./ui/popover";
+import { Popover, PopoverContent, PopoverTrigger } from "./ui/popover";
 import { Switch } from "./ui/switch";
 import { Label } from "./ui/label";
 import {
@@ -14,14 +10,11 @@ import {
   HelpCircle,
   ChevronLeft,
   ChevronRight,
+  Plus,
+  ListPlus,
+  X,
 } from "lucide-react";
-import {
-  format,
-  startOfWeek,
-  addDays,
-  subWeeks,
-  addWeeks,
-} from "date-fns";
+import { format, startOfWeek, addDays, subWeeks, addWeeks } from "date-fns";
 
 interface ClassTime {
   day: string;
@@ -48,6 +41,12 @@ interface CalendarWeeklyViewProps {
   onToggleAttendance: (recordId: string, isCompensation?: boolean) => void;
   onWeekChange: (weekStart: Date) => void;
   onAddCompensation: () => void;
+  isCompensationDialogOpen: boolean;
+  onAddQuickCompensation: (
+    courseId: string,
+    date: Date,
+    status: "present" | "absent",
+  ) => void;
 }
 
 /* ================= COMPONENT ================= */
@@ -58,11 +57,22 @@ export function CalendarWeeklyView({
   onToggleAttendance,
   onWeekChange,
   onAddCompensation,
+  isCompensationDialogOpen,
+  onAddQuickCompensation,
 }: CalendarWeeklyViewProps) {
   const [selectedWeekStart, setSelectedWeekStart] = useState<Date>(
-    startOfWeek(new Date(), { weekStartsOn: 1 })
+    startOfWeek(new Date(), { weekStartsOn: 1 }),
   );
   const [showWeekends, setShowWeekends] = useState(false);
+  const [isAddCompensationMode, setIsAddCompensationMode] = useState(false);
+  const prevIsDialogOpen = useRef(isCompensationDialogOpen);
+
+  useEffect(() => {
+    if (prevIsDialogOpen.current && !isCompensationDialogOpen) {
+      setIsAddCompensationMode(false);
+    }
+    prevIsDialogOpen.current = isCompensationDialogOpen;
+  }, [isCompensationDialogOpen]);
 
   useEffect(() => {
     onWeekChange(selectedWeekStart);
@@ -70,16 +80,14 @@ export function CalendarWeeklyView({
 
   const getWeekDates = () => {
     const dates = Array.from({ length: 7 }).map((_, i) =>
-      addDays(selectedWeekStart, i)
+      addDays(selectedWeekStart, i),
     );
     return showWeekends ? dates : dates.slice(0, 5);
   };
 
   const getRecords = (courseId: string, date: Date) => {
     const dateStr = format(date, "yyyy-MM-dd");
-    return records.filter(
-      (r) => r.courseId === courseId && r.date === dateStr
-    );
+    return records.filter((r) => r.courseId === courseId && r.date === dateStr);
   };
 
   const getStatusIcon = (status: AttendanceRecord["status"]) => {
@@ -113,46 +121,76 @@ export function CalendarWeeklyView({
   return (
     <div className="space-y-6 text-sm sm:text-base">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-        <h1 className="text-lg sm:text-xl font-semibold">
-          Weekly Timetable
-        </h1>
-
-        <div className="flex flex-wrap items-center gap-2">
-          <div className="flex items-center space-x-2 mr-2">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div className="flex items-center justify-between sm:justify-start gap-4 w-full sm:w-auto">
+          <h1 className="text-lg sm:text-xl font-semibold">Weekly Timetable</h1>
+          
+          <div className="flex items-center space-x-2">
             <Switch
               id="show-weekends"
               checked={showWeekends}
               onCheckedChange={setShowWeekends}
             />
-            <Label htmlFor="show-weekends" className="text-sm font-medium text-gray-600 dark:text-gray-400">Weekends</Label>
+            <Label
+              htmlFor="show-weekends"
+              className="text-sm font-medium text-gray-600 dark:text-gray-400"
+            >
+              Weekends
+            </Label>
+          </div>
+        </div>
+
+        <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 w-full sm:w-auto">
+          <div className="flex items-center gap-1">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setIsAddCompensationMode(!isAddCompensationMode)}
+              className="flex items-center gap-2 transition-colors"
+              style={isAddCompensationMode ? { backgroundColor: "#0078d4", color: "white", borderColor: "#0078d4" } : {}}
+            >
+              <Plus 
+                className="h-4 w-4"
+                style={{ 
+                  transition: "transform 0.3s ease",
+                  transform: isAddCompensationMode ? "rotate(45deg)" : "rotate(0deg)" 
+                }}
+              />
+              Add Compensation Class
+            </Button>
+            {isAddCompensationMode && (
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={onAddCompensation}
+                title="Manual Entry"
+                className="px-2"
+              >
+                <ListPlus className="h-4 w-4" />
+              </Button>
+            )}
           </div>
 
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={onAddCompensation}
-          >
-            Add Compensation Class
-          </Button>
-
-          <Button size="icon" variant="ghost" onClick={goToPreviousWeek}>
-            <ChevronLeft />
-          </Button>
-
-          <span className="text-gray-600 dark:text-gray-400 font-medium">
-            {format(selectedWeekStart, "MMM d")} –{" "}
-            {format(addDays(selectedWeekStart, 6), "MMM d, yyyy")}
-          </span>
-
-          <Button size="icon" variant="ghost" onClick={goToNextWeek}>
-            <ChevronRight />
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button size="icon" variant="ghost" onClick={goToPreviousWeek}>
+              <ChevronLeft />
+            </Button>
+            <span className="text-gray-600 dark:text-gray-400 font-medium whitespace-nowrap">
+              {format(selectedWeekStart, "MMM d")} –{" "}
+              {format(addDays(selectedWeekStart, 6), "MMM d, yyyy")}
+            </span>
+            <Button size="icon" variant="ghost" onClick={goToNextWeek}>
+              <ChevronRight />
+            </Button>
+          </div>
         </div>
       </div>
 
       {/* Table */}
-      <Card className="overflow-x-auto rounded-2xl shadow-sm">
+      <Card
+        className="w-full mx-auto overflow-x-auto rounded-2xl shadow-sm"
+        style={{ maxWidth: "540px" }}
+      >
         <table className="w-full border-collapse text-xs sm:text-sm">
           <thead>
             <tr>
@@ -160,12 +198,9 @@ export function CalendarWeeklyView({
                 Course
               </th>
               {getWeekDates().map((date) => (
-                  <th
-                    key={date.toISOString()}
-                    className="border p-2 text-center"
-                  >
-                    {format(date, "EEE dd/MM")}
-                  </th>
+                <th key={date.toISOString()} className="border p-2 text-center">
+                  {format(date, "EEE dd/MM")}
+                </th>
               ))}
             </tr>
           </thead>
@@ -183,23 +218,73 @@ export function CalendarWeeklyView({
 
                 {getWeekDates().map((date) => {
                   const dayName = format(date, "EEEE");
-                  const scheduledSessions = course.classTimes.find(ct => ct.day === dayName)?.sessions || 0;
+                  const scheduledSessions =
+                    course.classTimes.find((ct) => ct.day === dayName)
+                      ?.sessions || 0;
                   const dayRecords = getRecords(course.id, date);
-                  const totalSessions = Math.max(scheduledSessions, dayRecords.length);
-                  const presentSessions = dayRecords.filter(r => r.status === "present").length;
+                  const totalSessions = Math.max(
+                    scheduledSessions,
+                    dayRecords.length,
+                  );
+                  const presentSessions = dayRecords.filter(
+                    (r) => r.status === "present",
+                  ).length;
 
                   return (
                     <td
                       key={date.toISOString()}
                       className="border p-1 text-center"
                     >
-                      {totalSessions === 0 || dayRecords.length === 0 ? (
+                      {isAddCompensationMode ? (
+                        <Popover>
+                          <PopoverTrigger asChild>
+                            <button className="flex items-center justify-center w-full px-2 py-1 rounded text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors">
+                              <Plus className="h-4 w-4 mx-auto" />
+                            </button>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-36 p-1 flex flex-col gap-1">
+                            <button
+                              onClick={() => {
+                                onAddQuickCompensation(
+                                  course.id,
+                                  date,
+                                  "present",
+                                );
+                                setIsAddCompensationMode(false);
+                              }}
+                              className="flex items-center justify-start gap-2 w-full px-3 py-2 rounded text-sm transition-colors hover:bg-green-50 text-green-700 dark:text-green-300 dark:hover:bg-green-900/50"
+                            >
+                              <CheckCircle2 className="h-4 w-4" />
+                              Attended
+                            </button>
+                            <button
+                              onClick={() => {
+                                onAddQuickCompensation(
+                                  course.id,
+                                  date,
+                                  "absent",
+                                );
+                                setIsAddCompensationMode(false);
+                              }}
+                              className="flex items-center justify-start gap-2 w-full px-3 py-2 rounded text-sm transition-colors hover:bg-red-50 text-red-700 dark:text-red-300 dark:hover:bg-red-900/50"
+                            >
+                              <XCircle className="h-4 w-4" />
+                              Absent
+                            </button>
+                          </PopoverContent>
+                        </Popover>
+                      ) : totalSessions === 0 || dayRecords.length === 0 ? (
                         <span className="text-gray-300">—</span>
                       ) : totalSessions === 1 && dayRecords.length === 1 ? (
                         <button
-                          onClick={() => onToggleAttendance(dayRecords[0].id, false)}
+                          onClick={() =>
+                            onToggleAttendance(
+                              dayRecords[0].id,
+                              scheduledSessions === 0,
+                            )
+                          }
                           className={`flex items-center justify-center w-full px-2 py-1 rounded ${getStatusColor(
-                            dayRecords[0].status
+                            dayRecords[0].status,
                           )}`}
                         >
                           {getStatusIcon(dayRecords[0].status)}
@@ -207,19 +292,27 @@ export function CalendarWeeklyView({
                       ) : (
                         <Popover>
                           <PopoverTrigger asChild>
-                            <button className={`relative overflow-hidden flex items-center justify-center w-full px-2 py-1 rounded text-xs sm:text-sm font-medium transition-colors hover:opacity-90 ${
-                              presentSessions === dayRecords.length && dayRecords.length > 0
-                                ? "bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300 hover:bg-green-200 dark:hover:bg-green-800"
-                                : "text-gray-700 dark:text-gray-300"
-                            }`}>
+                            <button
+                              className={`relative overflow-hidden flex items-center justify-center w-full px-2 py-1 rounded text-xs sm:text-sm font-medium transition-colors hover:opacity-90 ${
+                                presentSessions === dayRecords.length &&
+                                dayRecords.length > 0
+                                  ? "bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300 hover:bg-green-200 dark:hover:bg-green-800"
+                                  : "text-gray-700 dark:text-gray-300"
+                              }`}
+                            >
                               {presentSessions !== dayRecords.length && (
                                 <div className="absolute inset-0 flex z-0">
                                   {dayRecords.map((r) => (
-                                    <div key={r.id} className={`flex-1 opacity-80 ${
-                                      r.status === 'present' ? 'bg-green-100 dark:bg-green-900' :
-                                      r.status === 'absent' ? 'bg-red-100 dark:bg-red-900' :
-                                      'bg-gray-100 dark:bg-gray-800'
-                                    }`} />
+                                    <div
+                                      key={r.id}
+                                      className={`flex-1 opacity-80 ${
+                                        r.status === "present"
+                                          ? "bg-green-100 dark:bg-green-900"
+                                          : r.status === "absent"
+                                            ? "bg-red-100 dark:bg-red-900"
+                                            : "bg-gray-100 dark:bg-gray-800"
+                                      }`}
+                                    />
                                   ))}
                                 </div>
                               )}
@@ -237,12 +330,21 @@ export function CalendarWeeklyView({
                               return (
                                 <button
                                   key={record.id}
-                                  onClick={() => onToggleAttendance(record.id, isCompensation)}
+                                  onClick={() =>
+                                    onToggleAttendance(
+                                      record.id,
+                                      isCompensation,
+                                    )
+                                  }
                                   className={`flex items-center justify-between w-full px-3 py-2 rounded text-sm transition-opacity hover:opacity-80 ${getStatusColor(
-                                    record.status
+                                    record.status,
                                   )}`}
                                 >
-                                  <span>{isCompensation ? "Compensation" : `Session ${idx + 1}`}</span>
+                                  <span>
+                                    {isCompensation
+                                      ? "Compensation"
+                                      : `Session ${idx + 1}`}
+                                  </span>
                                   {getStatusIcon(record.status)}
                                 </button>
                               );

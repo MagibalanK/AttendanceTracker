@@ -471,6 +471,11 @@ export default function App() {
             onToggleAttendance={handleToggleAttendance}
             onWeekChange={handleWeekChange}
             onAddCompensation={() => setShowCompDialog(true)}
+            isCompensationDialogOpen={showCompDialog}
+            onAddQuickCompensation={async (courseId, date, status) => {
+              const dateStr = format(date, "yyyy-MM-dd");
+              await handleAddCompensation(courseId, dateStr, 1, status);
+            }}
           />
         )}
 
