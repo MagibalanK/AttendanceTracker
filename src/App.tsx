@@ -390,7 +390,10 @@ export default function App() {
 
   const selectedCourse = courses.find((c) => c.id === selectedCourseId);
 
-  const handleSaveTargetPercentage = async (courseId: string, target: number) => {
+  const handleSaveTargetPercentage = async (
+    courseId: string,
+    target: number,
+  ) => {
     const {
       data: { user },
     } = await supabase.auth.getUser();
@@ -409,7 +412,9 @@ export default function App() {
     }
 
     setCourses((prev) =>
-      prev.map((c) => (c.id === courseId ? { ...c, targetPercentage: target } : c)),
+      prev.map((c) =>
+        c.id === courseId ? { ...c, targetPercentage: target } : c,
+      ),
     );
     toast.success(`Target updated to ${target}%`);
   };
@@ -481,26 +486,64 @@ export default function App() {
 
       <main className="max-w-7xl mx-auto p-6">
         {isLoading ? (
-          <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4">
-            <div className="w-64 h-2 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden relative">
-              <div className="absolute top-0 left-0 h-full bg-indigo-600 dark:bg-indigo-500 rounded-full animate-slider" style={{ width: '50%' }}></div>
+          <div className="space-y-6 w-full animate-pulse">
+            <div className="mb-8">
+              <div
+                style={{ height: "40px", width: "256px" }}
+                className="bg-gray-200 dark:bg-gray-800 rounded mb-2"
+              ></div>
             </div>
-            <p className="text-sm text-gray-500 dark:text-gray-400 animate-pulse">Loading your attendance data...</p>
+
+            <div>
+              <div
+                style={{ height: "32px", width: "192px" }}
+                className="bg-gray-200 dark:bg-gray-800 rounded mb-4"
+              ></div>
+              <div
+                style={{ height: "96px", width: "100%" }}
+                className="bg-gray-200 dark:bg-gray-800 rounded-xl"
+              ></div>
+            </div>
+
+            <div>
+              <div className="flex items-center justify-between mb-4">
+                <div
+                  style={{ height: "32px", width: "128px" }}
+                  className="bg-gray-200 dark:bg-gray-800 rounded"
+                ></div>
+                <div
+                  style={{ height: "40px", width: "128px" }}
+                  className="bg-gray-200 dark:bg-gray-800 rounded-lg"
+                ></div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {[1, 2, 3, 4, 5, 6].map((i) => (
+                  <div
+                    key={i}
+                    style={{ height: "192px", width: "100%" }}
+                    className="bg-gray-200 dark:bg-gray-800 rounded-xl border border-gray-100 dark:border-gray-800"
+                  ></div>
+                ))}
+              </div>
+            </div>
           </div>
-        ) : currentView === "dashboard" && (
-          <Dashboard
-            courses={courses}
-            records={records}
-            onAddCourse={() => setShowAddCourseDialog(true)}
-            onViewCalendar={() => setCurrentView("calendar")}
-            onViewAnalytics={() => setCurrentView("analytics")}
-            onViewCourse={handleViewCourse}
-            onEditCourse={(course) => {
-              setEditingCourse(course);
-              setShowAddCourseDialog(true);
-            }}
-            onDeleteCourse={handleDeleteCourse}
-          />
+        ) : (
+          currentView === "dashboard" && (
+            <Dashboard
+              courses={courses}
+              records={records}
+              onAddCourse={() => setShowAddCourseDialog(true)}
+              onViewCalendar={() => setCurrentView("calendar")}
+              onViewAnalytics={() => setCurrentView("analytics")}
+              onViewCourse={handleViewCourse}
+              onEditCourse={(course) => {
+                setEditingCourse(course);
+                setShowAddCourseDialog(true);
+              }}
+              onDeleteCourse={handleDeleteCourse}
+            />
+          )
         )}
 
         {!isLoading && currentView === "calendar" && (
