@@ -59,6 +59,7 @@ interface Course {
   name: string;
   color: string;
   classTimes: { day: string; sessions: number }[];
+  targetPercentage: number;
 }
 
 interface Props {
@@ -93,6 +94,7 @@ export function ImportCoursesDialog({
             name,
             color,
             classTimes: [],
+            targetPercentage: 75,
           });
         }
 
