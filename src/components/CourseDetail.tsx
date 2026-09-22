@@ -17,6 +17,7 @@ interface Course {
   name: string;
   color: string;
   classTimes: Array<{ day: string; sessions: number }>;
+  targetPercentage: number;
 }
 
 interface CourseDetailProps {

@@ -22,6 +22,7 @@ interface Course {
   name: string;
   classTimes: ClassTime[];
   color: string;
+  targetPercentage: number;
 }
 
 interface AddCourseDialogProps {
@@ -56,6 +57,7 @@ export function AddCourseDialog({
 }: AddCourseDialogProps) {
   const [courseName, setCourseName] = useState("");
   const [selectedColor, setSelectedColor] = useState(COLORS[0]);
+  const [targetPercentage, setTargetPercentage] = useState<number>(75);
   const [schedule, setSchedule] = useState<Record<string, DaySchedule>>({
     Monday: { enabled: false, sessions: 1 },
     Tuesday: { enabled: false, sessions: 1 },
@@ -68,6 +70,7 @@ export function AddCourseDialog({
     if (editCourse) {
       setCourseName(editCourse.name);
       setSelectedColor(editCourse.color);
+      setTargetPercentage(editCourse.targetPercentage || 75);
 
       // Convert classTimes array to schedule object
       const newSchedule: Record<string, DaySchedule> = {
@@ -91,6 +94,7 @@ export function AddCourseDialog({
     } else {
       setCourseName("");
       setSelectedColor(COLORS[0]);
+      setTargetPercentage(75);
       setSchedule({
         Monday: { enabled: false, sessions: 1 },
         Tuesday: { enabled: false, sessions: 1 },
@@ -137,6 +141,7 @@ export function AddCourseDialog({
       name: courseName,
       classTimes,
       color: selectedColor,
+      targetPercentage: Number(targetPercentage),
     };
 
     onSave(courseData as Course);
@@ -190,6 +195,28 @@ export function AddCourseDialog({
                 />
               ))}
             </div>
+          </div>
+
+          <div className="space-y-2">
+            <Label>Target Attendance (%)</Label>
+            <Input
+              type="number"
+              min="0"
+              max="100"
+              placeholder="75"
+              value={targetPercentage}
+              onChange={(e) => {
+                const val = parseInt(e.target.value);
+                setTargetPercentage(isNaN(val) ? 0 : Math.min(100, Math.max(0, val)));
+              }}
+              onFocus={(e) => {
+                const target = e.target;
+                setTimeout(() => target.select(), 0);
+              }}
+            />
+            <p className="text-xs text-gray-500">
+              The required attendance percentage for this specific course.
+            </p>
           </div>
 
           <div className="space-y-3">

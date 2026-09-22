@@ -10,6 +10,7 @@ interface Course {
   name: string;
   color: string;
   classTimes: Array<{ day: string; sessions: number }>;
+  targetPercentage: number;
 }
 
 interface AttendanceRecord {
@@ -42,8 +43,12 @@ export function Dashboard({
 }: DashboardProps) {
   const getCourseStats = (courseId: string) => {
     const courseRecords = records.filter((r) => r.courseId === courseId);
-    const presentCount = courseRecords.filter((r) => r.status === "present").length;
-    const totalCount = courseRecords.filter((r) => r.status !== "nodata").length;
+    const presentCount = courseRecords.filter(
+      (r) => r.status === "present",
+    ).length;
+    const totalCount = courseRecords.filter(
+      (r) => r.status !== "nodata",
+    ).length;
     const percentage = totalCount > 0 ? (presentCount / totalCount) * 100 : 0;
     return { attended: presentCount, conducted: totalCount, percentage };
   };
@@ -69,24 +74,21 @@ export function Dashboard({
 
   return (
     <div className="space-y-6 animate-in fade-in duration-300">
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
-          <h1 className="mb-2">TrackYourClawses</h1>
-          <p className="text-gray-600 dark:text-gray-400">
-            Track your classes and monitor your attendance
-          </p>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          <Button onClick={onAddCourse}>
-            <Plus className="h-4 w-4 mr-2" />
-            Add Course
-          </Button>
- 
-          <Button variant="outline" onClick={onViewCalendar}>
-            <CalendarIcon className="h-4 w-4 mr-2" />
-            Calendar
-          </Button>
-        </div>
+      <div className="mb-8">
+        <h1 className="mb-2 text-4xl font-bold tracking-tight text-gray-900 dark:text-white">
+          TrackYourClawses
+        </h1>
+        <p className="text-gray-600 dark:text-gray-400 mb-6 text-lg">
+          Track your classes and monitor your attendance
+        </p>
+        <Button
+          size="lg"
+          onClick={onViewCalendar}
+          className="w-full sm:w-auto text-base py-6 px-8  transition-all hover:shadow-lg btn-calendar-custom"
+        >
+          <CalendarIcon className="h-5 w-5 mr-3" />
+          Open Calendar View
+        </Button>
       </div>
 
       <div>
@@ -99,7 +101,13 @@ export function Dashboard({
       </div>
 
       <div>
-        <h2 className="mb-4">Your Courses</h2>
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="!mb-0">Your Courses</h2>
+          <Button onClick={onAddCourse}>
+            <Plus className="h-4 w-4 mr-2" />
+            Add Course
+          </Button>
+        </div>
         {courses.length === 0 ? (
           <Card className="p-12 text-center">
             <div className="space-y-4">
@@ -123,20 +131,21 @@ export function Dashboard({
             {courses.map((course) => {
               const stats = getCourseStats(course.id);
               return (
-              <CourseCard
-                key={course.id}
-                id={course.id}
-                name={course.name}
-                color={course.color}
-                percentage={stats.percentage}
-                attended={stats.attended}
-                conducted={stats.conducted}
-                classTimes={course.classTimes}
-                onView={() => onViewCourse(course.id)}
-                onEdit={() => onEditCourse(course)}
-                onDelete={() => onDeleteCourse(course.id)}
-              />
-            )})}
+                <CourseCard
+                  key={course.id}
+                  id={course.id}
+                  name={course.name}
+                  color={course.color}
+                  percentage={stats.percentage}
+                  attended={stats.attended}
+                  conducted={stats.conducted}
+                  classTimes={course.classTimes}
+                  onView={() => onViewCourse(course.id)}
+                  onEdit={() => onEditCourse(course)}
+                  onDelete={() => onDeleteCourse(course.id)}
+                />
+              );
+            })}
           </div>
         )}
       </div>

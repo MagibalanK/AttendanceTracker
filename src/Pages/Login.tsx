@@ -1,4 +1,4 @@
-import { useState, useActionState } from "react";
+import { useState, useActionState, useEffect } from "react";
 import { Sun, Moon, PawPrint as Sparkles } from "lucide-react";
 import { motion } from "motion/react";
 import { useAuth } from "../AuthContext";
@@ -22,6 +22,16 @@ export default function App() {
   const [email, setEmail] = useState<string>("");
   const [password, setPassword] = useState<string>("");
   const [isFocused, setIsFocused] = useState<boolean>(false);
+
+  useEffect(() => {
+    import('../supabaseClient').then(({ default: supabase }) => {
+      supabase.auth.getUser().then(({ data }) => {
+        if (data?.user) {
+          navigate('/dashboard');
+        }
+      });
+    });
+  }, [navigate]);
 
   const toggleTheme = () => {
     setTheme((prev) => (prev === "light" ? "dark" : "light"));

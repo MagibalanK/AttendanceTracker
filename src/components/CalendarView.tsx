@@ -26,6 +26,7 @@ interface Course {
   name: string;
   color: string;
   classTimes: ClassTime[];
+  targetPercentage: number;
 }
 
 interface AttendanceRecord {

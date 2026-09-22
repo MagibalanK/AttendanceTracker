@@ -33,6 +33,7 @@ interface Course {
   name: string;
   color: string;
   classTimes: ClassTime[];
+  targetPercentage: number;
 }
 
 interface AttendanceRecord {
@@ -97,10 +98,14 @@ export default function App() {
   /* ================= AUTH ================= */
 
   useEffect(() => {
-    supabase.auth.getUser().then(({ data }) => {
+    supabase.auth.getUser().then(({ data, error }) => {
+      if (error || !data.user) {
+        navigate("/");
+        return;
+      }
       setUserName(data.user?.user_metadata?.name ?? "Guest");
     });
-  }, []);
+  }, [navigate]);
 
   /* ================= THEME ================= */
 
@@ -306,6 +311,7 @@ export default function App() {
           name: course.name,
           color: course.color,
           classTimes: course.classTimes,
+          targetPercentage: course.targetPercentage,
         })
         .eq("id", course.id)
         .eq("userId", user.id);
@@ -381,6 +387,30 @@ export default function App() {
   };
 
   const selectedCourse = courses.find((c) => c.id === selectedCourseId);
+
+  const handleSaveTargetPercentage = async (courseId: string, target: number) => {
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user) return;
+
+    const { error } = await supabase
+      .from("courses")
+      .update({ targetPercentage: target })
+      .eq("id", courseId)
+      .eq("userId", user.id);
+
+    if (error) {
+      console.error("Error updating target percentage:", error);
+      toast.error("Failed to save target percentage: " + error.message);
+      return;
+    }
+
+    setCourses((prev) =>
+      prev.map((c) => (c.id === courseId ? { ...c, targetPercentage: target } : c)),
+    );
+    toast.success(`Target updated to ${target}%`);
+  };
 
   /* ================= RENDER ================= */
 
@@ -481,6 +511,9 @@ export default function App() {
 
         {currentView === "course" && selectedCourse && (
           <Analytics
+            courseId={selectedCourse.id}
+            initialTarget={selectedCourse.targetPercentage || 75}
+            onSaveTarget={handleSaveTargetPercentage}
             totalClasse={records
               .filter((r) => r.courseId === selectedCourse.id)
               .reduce((count, r) => {

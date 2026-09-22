@@ -7,18 +7,24 @@ import { ForecastChart } from './ForecastChart';
 import { Slider } from './ui/slider';
 
 interface AnalyticsProps {
+  courseId: string;
   totalClasse: number;
   attendedClasse: number;
+  initialTarget: number;
+  onSaveTarget: (id: string, target: number) => void;
   isDar?: boolean;
 }
 
 export default function Analytics({
+  courseId,
   totalClasse,
   attendedClasse,
+  initialTarget,
+  onSaveTarget,
 }: AnalyticsProps) {
   const [totalClasses, setTotalClasses] = useState(totalClasse);
   const [attendedClasses, setAttendedClasses] = useState(attendedClasse);
-  const [targetPercentage, setTargetPercentage] = useState(75);
+  const [targetPercentage, setTargetPercentage] = useState(initialTarget);
 
   const currentAttendance =
     totalClasses > 0 ? (attendedClasses / totalClasses) * 100 : 0;
@@ -144,9 +150,31 @@ export default function Analytics({
 
           {/* SLIDER CARD */}
           <div className="cards">
-            <div className="slider-header">
-              <span className="slider-label">Target %</span>
-              <span className="slider-value">{targetPercentage}%</span>
+            <div className="slider-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+              <div style={{ display: 'flex', flexDirection: 'column' }}>
+                <span className="slider-label">Target %</span>
+                <span className="slider-value">{targetPercentage}%</span>
+              </div>
+              {targetPercentage !== initialTarget && (
+                <button
+                  onClick={() => onSaveTarget(courseId, targetPercentage)}
+                  style={{
+                    backgroundColor: 'var(--primary)',
+                    color: 'var(--primary-foreground)',
+                    padding: '0.5rem 1rem',
+                    borderRadius: '0.375rem',
+                    fontSize: '0.875rem',
+                    fontWeight: 500,
+                    cursor: 'pointer',
+                    border: 'none',
+                    transition: 'opacity 0.2s'
+                  }}
+                  onMouseOver={(e) => (e.currentTarget.style.opacity = '0.9')}
+                  onMouseOut={(e) => (e.currentTarget.style.opacity = '1')}
+                >
+                  Save Target
+                </button>
+              )}
             </div>
 
             <Slider
@@ -170,13 +198,12 @@ export default function Analytics({
           grid-template-columns: 1fr 1fr;
         }
 
-        .cards
-        {
-                  background: var(--card);
+        .cards {
+          background: var(--card);
           border: 1px solid var(--border);
           border-radius: 0.75rem;
           padding: 1.5rem;
-          height:100px !important
+          min-height: 100px;
         }
         .metric-grid {
           display: grid;
