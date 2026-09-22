@@ -77,6 +77,7 @@ export default function App() {
   const [showAddCourseDialog, setShowAddCourseDialog] = useState(false);
   const [showImportDialog, setShowImportDialog] = useState(false);
   const [editingCourse, setEditingCourse] = useState<Course | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
 
   function deriveAttendanceStats(records: AttendanceRecord[]): {
     totalClasses: number;
@@ -164,6 +165,7 @@ export default function App() {
 
       setCourses(courseData ?? []);
       setRecords(recordData ?? []);
+      setIsLoading(false);
     };
 
     loadData();
@@ -478,7 +480,14 @@ export default function App() {
       </nav>
 
       <main className="max-w-7xl mx-auto p-6">
-        {currentView === "dashboard" && (
+        {isLoading ? (
+          <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4">
+            <div className="w-64 h-2 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden relative">
+              <div className="absolute top-0 left-0 h-full bg-indigo-600 dark:bg-indigo-500 rounded-full animate-slider" style={{ width: '50%' }}></div>
+            </div>
+            <p className="text-sm text-gray-500 dark:text-gray-400 animate-pulse">Loading your attendance data...</p>
+          </div>
+        ) : currentView === "dashboard" && (
           <Dashboard
             courses={courses}
             records={records}
@@ -494,7 +503,7 @@ export default function App() {
           />
         )}
 
-        {currentView === "calendar" && (
+        {!isLoading && currentView === "calendar" && (
           <CalendarWeeklyView
             courses={courses}
             records={records}
@@ -509,7 +518,7 @@ export default function App() {
           />
         )}
 
-        {currentView === "course" && selectedCourse && (
+        {!isLoading && currentView === "course" && selectedCourse && (
           <Analytics
             courseId={selectedCourse.id}
             initialTarget={selectedCourse.targetPercentage || 75}
