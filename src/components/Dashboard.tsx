@@ -4,6 +4,7 @@ import { Plus, Calendar as CalendarIcon } from "lucide-react";
 import { CourseCard } from "./CourseCard";
 import { StatsWidget } from "./StatsWidget";
 import { startOfWeek, endOfWeek, isWithinInterval } from "date-fns";
+import { SemesterSelector, Semester } from "./SemesterSelector";
 
 interface Course {
   id: string;
@@ -23,6 +24,14 @@ interface AttendanceRecord {
 interface DashboardProps {
   courses: Course[];
   records: AttendanceRecord[];
+  allCourses?: Course[];
+  allRecords?: AttendanceRecord[];
+  semesters: Semester[];
+  activeSemesterId: string | null;
+  onSelectSemester: (id: string) => void;
+  onCreateSemester: (name: string) => Promise<void> | void;
+  onRenameSemester: (id: string, newName: string) => Promise<void> | void;
+  onDeleteSemester: (id: string) => Promise<void> | void;
   onAddCourse: () => void;
   onViewAnalytics: () => void;
   onViewCalendar: () => void;
@@ -34,8 +43,15 @@ interface DashboardProps {
 export function Dashboard({
   courses,
   records,
+  allCourses,
+  allRecords,
+  semesters,
+  activeSemesterId,
+  onSelectSemester,
+  onCreateSemester,
+  onRenameSemester,
+  onDeleteSemester,
   onAddCourse,
-
   onViewCalendar,
   onViewCourse,
   onEditCourse,
@@ -75,16 +91,33 @@ export function Dashboard({
   return (
     <div className="space-y-6 animate-in fade-in duration-300">
       <div className="mb-8">
-        <h1 className="mb-2 text-4xl font-bold tracking-tight text-gray-900 dark:text-white">
-          TrackYourClawses
-        </h1>
-        <p className="text-gray-600 dark:text-gray-400 mb-6 text-lg">
+        <div className="flex items-center justify-between gap-2 sm:gap-4 mb-1">
+          <h1 className="text-2xl sm:text-4xl font-bold tracking-tight text-gray-900 dark:text-white truncate">
+            TrackYourClawses
+          </h1>
+
+          <div className="flex-shrink-0">
+            <SemesterSelector
+              semesters={semesters}
+              activeSemesterId={activeSemesterId}
+              allCourses={allCourses}
+              allRecords={allRecords}
+              onSelectSemester={onSelectSemester}
+              onCreateSemester={onCreateSemester}
+              onRenameSemester={onRenameSemester}
+              onDeleteSemester={onDeleteSemester}
+            />
+          </div>
+        </div>
+
+        <p className="text-gray-600 dark:text-gray-400 text-sm sm:text-lg mb-3">
           Track your classes and monitor your attendance
         </p>
+
         <Button
           size="lg"
           onClick={onViewCalendar}
-          className="w-full sm:w-auto text-base py-6 px-8  transition-all hover:shadow-lg btn-calendar-custom"
+          className="w-full sm:w-auto text-base py-6 px-8 transition-all hover:shadow-lg btn-calendar-custom"
         >
           <CalendarIcon className="h-5 w-5 mr-3" />
           Open Calendar View

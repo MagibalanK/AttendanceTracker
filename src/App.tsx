@@ -4,10 +4,11 @@ import { CalendarWeeklyView } from "./components/CalendarView";
 import Analytics from "./components/Analytics";
 import { AddCourseDialog } from "./components/AddCourseDialog";
 import { ImportCoursesDialog } from "./components/ImportCoursesDialog";
+import { Semester } from "./components/SemesterSelector";
 import supabase from "./supabaseClient";
 import { useAuth } from "./AuthContext";
 import { useNavigate } from "react-router-dom";
-import { startOfWeek, addDays, format } from "date-fns";
+import { addDays, format } from "date-fns";
 import { Button } from "./components/ui/button";
 import { Moon, Sun, User, Plus } from "lucide-react";
 import { AddCompensationDialog } from "./components/AddCompenstation";
@@ -34,6 +35,7 @@ interface Course {
   color: string;
   classTimes: ClassTime[];
   targetPercentage: number;
+  semesterId?: string | null;
 }
 
 interface AttendanceRecord {
@@ -58,8 +60,6 @@ const WEEKDAYS = [
 export default function App() {
   const [showCompDialog, setShowCompDialog] = useState(false);
 
-  const [copied, setCopied] = useState(false);
-
   const navigate = useNavigate();
   const { signOutUser } = useAuth();
 
@@ -68,6 +68,11 @@ export default function App() {
   const [userName, setUserName] = useState("Guest");
   const [isDarkMode, setIsDarkMode] = useState(false);
 
+  // Semesters
+  const [semesters, setSemesters] = useState<Semester[]>([]);
+  const [activeSemesterId, setActiveSemesterId] = useState<string | null>(null);
+
+  // Courses & Records
   const [courses, setCourses] = useState<Course[]>([]);
   const [records, setRecords] = useState<AttendanceRecord[]>([]);
 
@@ -79,11 +84,24 @@ export default function App() {
   const [editingCourse, setEditingCourse] = useState<Course | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  function deriveAttendanceStats(records: AttendanceRecord[]): {
+  /* ================= FILTERED DATA (BY SEMESTER) ================= */
+
+  const displayedCourses = courses.filter((c) => {
+    if (!activeSemesterId) return true;
+    return (c.semesterId || semesters[0]?.id) === activeSemesterId;
+  });
+
+  const displayedCourseIds = new Set(displayedCourses.map((c) => c.id));
+
+  const displayedRecords = records.filter((r) =>
+    displayedCourseIds.has(r.courseId),
+  );
+
+  function deriveAttendanceStats(recs: AttendanceRecord[]): {
     totalClasses: number;
     attendedClasses: number;
   } {
-    const conducted = records.filter(
+    const conducted = recs.filter(
       (r) => r.status === "present" || r.status === "absent",
     );
 
@@ -94,7 +112,7 @@ export default function App() {
       attendedClasses: attended.length,
     };
   }
-  const { totalClasses, attendedClasses } = deriveAttendanceStats(records);
+  const { totalClasses, attendedClasses } = deriveAttendanceStats(displayedRecords);
 
   /* ================= AUTH ================= */
 
@@ -122,6 +140,222 @@ export default function App() {
 
   /* ================= LOAD DATA ================= */
 
+  useEffect(() => {
+    const loadData = async () => {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (!user) return;
+
+      // 1. Fetch semesters
+      const { data: semesterData, error: semesterError } = await supabase
+        .from("semesters")
+        .select("*")
+        .eq("userId", user.id)
+        .order("created_at", { ascending: false });
+
+      let currentSemesters: Semester[] = semesterData ?? [];
+
+      if (semesterError) {
+        console.error("Error fetching semesters:", semesterError);
+      }
+
+      // If no semesters exist yet, create a default semester
+      if (currentSemesters.length === 0) {
+        const defaultSem: Semester = {
+          id: crypto.randomUUID(),
+          name: "default",
+          userId: user.id,
+        };
+        const { data: insertedSem } = await supabase
+          .from("semesters")
+          .insert(defaultSem)
+          .select()
+          .single();
+
+        currentSemesters = [insertedSem ?? defaultSem];
+      }
+
+      // Determine active semester
+      const savedActiveId = localStorage.getItem(`activeSemester_${user.id}`);
+      const defaultActiveId =
+        savedActiveId && currentSemesters.some((s) => s.id === savedActiveId)
+          ? savedActiveId
+          : currentSemesters[0].id;
+
+      setSemesters(currentSemesters);
+      setActiveSemesterId(defaultActiveId);
+
+      // 2. Fetch courses & records
+      const { data: courseData } = await supabase
+        .from("courses")
+        .select("*")
+        .eq("userId", user.id);
+
+      let loadedCourses: Course[] = courseData ?? [];
+
+      // If any existing course is missing semesterId, assign it to the default semester
+      const defaultSemId = currentSemesters[0].id;
+      const coursesWithoutSem = loadedCourses.filter((c) => !c.semesterId);
+      if (coursesWithoutSem.length > 0) {
+        await supabase
+          .from("courses")
+          .update({ semesterId: defaultSemId })
+          .eq("userId", user.id)
+          .is("semesterId", null);
+
+        loadedCourses = loadedCourses.map((c) =>
+          c.semesterId ? c : { ...c, semesterId: defaultSemId },
+        );
+      }
+
+      const { data: recordData } = await supabase
+        .from("attendanceRecords")
+        .select("*")
+        .eq("userId", user.id);
+
+      setCourses(loadedCourses);
+      setRecords(recordData ?? []);
+      setIsLoading(false);
+    };
+
+    loadData();
+  }, []);
+
+  /* ================= SEMESTER HANDLERS ================= */
+
+  const handleSelectSemester = (id: string) => {
+    setActiveSemesterId(id);
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      if (user) {
+        localStorage.setItem(`activeSemester_${user.id}`, id);
+      }
+    });
+
+    // If currently viewing a course that doesn't belong to the new semester, go back to dashboard
+    if (currentView === "course" && selectedCourseId) {
+      const courseInNewSem = courses.some(
+        (c) => c.id === selectedCourseId && (c.semesterId || semesters[0]?.id) === id,
+      );
+      if (!courseInNewSem) {
+        setSelectedCourseId(null);
+        setCurrentView("dashboard");
+      }
+    }
+  };
+
+  const handleCreateSemester = async (name: string) => {
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user) return;
+
+    const newSem: Semester = {
+      id: crypto.randomUUID(),
+      name,
+      userId: user.id,
+      created_at: new Date().toISOString(),
+    };
+
+    const { error } = await supabase.from("semesters").insert(newSem);
+    if (error) {
+      console.error("Error creating semester:", error);
+      toast.error("Failed to create semester folder: " + error.message);
+      return;
+    }
+
+    setSemesters((prev) => [newSem, ...prev]);
+    handleSelectSemester(newSem.id);
+    toast.success(`Created folder "${name}"`);
+  };
+
+  const handleRenameSemester = async (id: string, newName: string) => {
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user) return;
+
+    const { error } = await supabase
+      .from("semesters")
+      .update({ name: newName })
+      .eq("id", id)
+      .eq("userId", user.id);
+
+    if (error) {
+      console.error("Error renaming semester:", error);
+      toast.error("Failed to rename semester folder: " + error.message);
+      return;
+    }
+
+    setSemesters((prev) =>
+      prev.map((s) => (s.id === id ? { ...s, name: newName } : s)),
+    );
+    toast.success(`Renamed folder to "${newName}"`);
+  };
+
+  const handleDeleteSemester = async (id: string) => {
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user) return;
+
+    const semesterToDelete = semesters.find((s) => s.id === id);
+    if (!semesterToDelete) return;
+
+    // Delete semester from Supabase (cascades to courses in Postgres)
+    const { error } = await supabase
+      .from("semesters")
+      .delete()
+      .eq("id", id)
+      .eq("userId", user.id);
+
+    if (error) {
+      console.error("Error deleting semester:", error);
+      toast.error("Failed to delete semester folder: " + error.message);
+      return;
+    }
+
+    // Courses belonging to the deleted semester
+    const deletedCourseIds = courses
+      .filter((c) => (c.semesterId || semesters[0]?.id) === id)
+      .map((c) => c.id);
+
+    setCourses((prev) =>
+      prev.filter((c) => (c.semesterId || semesters[0]?.id) !== id),
+    );
+    setRecords((prev) =>
+      prev.filter((r) => !deletedCourseIds.includes(r.courseId)),
+    );
+
+    const remaining = semesters.filter((s) => s.id !== id);
+
+    if (remaining.length > 0) {
+      setSemesters(remaining);
+      if (activeSemesterId === id) {
+        handleSelectSemester(remaining[0].id);
+      }
+    } else {
+      // If no semesters remain, automatically recreate 'default'
+      const defaultSem: Semester = {
+        id: crypto.randomUUID(),
+        name: "default",
+        userId: user.id,
+      };
+      await supabase.from("semesters").insert(defaultSem);
+      setSemesters([defaultSem]);
+      handleSelectSemester(defaultSem.id);
+    }
+
+    if (selectedCourseId && deletedCourseIds.includes(selectedCourseId)) {
+      setSelectedCourseId(null);
+      setCurrentView("dashboard");
+    }
+
+    toast.success(`Deleted folder "${semesterToDelete.name}" and its data`);
+  };
+
+  /* ================= COMPENSATION ================= */
+
   const handleAddCompensation = async (
     courseId: string,
     date: string,
@@ -146,31 +380,6 @@ export default function App() {
     setRecords((prev) => [...prev, ...newRecords]);
   };
 
-  useEffect(() => {
-    const loadData = async () => {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-      if (!user) return;
-
-      const { data: courseData } = await supabase
-        .from("courses")
-        .select("*")
-        .eq("userId", user.id);
-
-      const { data: recordData } = await supabase
-        .from("attendanceRecords")
-        .select("*")
-        .eq("userId", user.id);
-
-      setCourses(courseData ?? []);
-      setRecords(recordData ?? []);
-      setIsLoading(false);
-    };
-
-    loadData();
-  }, []);
-
   /* ================= ATTENDANCE GENERATION ================= */
 
   const isGeneratingRef = useRef(false);
@@ -188,10 +397,7 @@ export default function App() {
 
         const newRecords: AttendanceRecord[] = [];
 
-        // We need to use the LATEST state, not the closure state if possible,
-        // but since we rely on `courses` and `records` from closure, we'll
-        // at least prevent concurrent strict-mode execution.
-        courses.forEach((course) => {
+        displayedCourses.forEach((course) => {
           for (let i = 0; i < 7; i++) {
             const date = addDays(weekStart, i);
             const dayName = WEEKDAYS[date.getDay()];
@@ -202,7 +408,7 @@ export default function App() {
             );
 
             if (scheduledCT) {
-              const existingCount = records.filter(
+              const existingCount = displayedRecords.filter(
                 (r) => r.courseId === course.id && r.date === dateStr,
               ).length;
 
@@ -237,7 +443,7 @@ export default function App() {
         isGeneratingRef.current = false;
       }
     },
-    [courses, records],
+    [displayedCourses, displayedRecords],
   );
 
   const handleWeekChange = useCallback(
@@ -318,11 +524,12 @@ export default function App() {
         .eq("id", course.id)
         .eq("userId", user.id);
 
-      setCourses((prev) => prev.map((c) => (c.id === course.id ? course : c)));
+      setCourses((prev) => prev.map((c) => (c.id === course.id ? { ...c, ...course } : c)));
     } else {
       const newCourse: Course & { userId: string } = {
         id: crypto.randomUUID(),
         userId: user.id,
+        semesterId: activeSemesterId,
         ...course,
       };
 
@@ -376,6 +583,7 @@ export default function App() {
       ...c,
       id: crypto.randomUUID(),
       userId: user.id,
+      semesterId: activeSemesterId,
     }));
 
     await supabase.from("courses").insert(rows);
@@ -531,8 +739,16 @@ export default function App() {
         ) : (
           currentView === "dashboard" && (
             <Dashboard
-              courses={courses}
-              records={records}
+              courses={displayedCourses}
+              records={displayedRecords}
+              allCourses={courses}
+              allRecords={records}
+              semesters={semesters}
+              activeSemesterId={activeSemesterId}
+              onSelectSemester={handleSelectSemester}
+              onCreateSemester={handleCreateSemester}
+              onRenameSemester={handleRenameSemester}
+              onDeleteSemester={handleDeleteSemester}
               onAddCourse={() => setShowAddCourseDialog(true)}
               onViewCalendar={() => setCurrentView("calendar")}
               onViewAnalytics={() => setCurrentView("analytics")}
@@ -548,8 +764,8 @@ export default function App() {
 
         {!isLoading && currentView === "calendar" && (
           <CalendarWeeklyView
-            courses={courses}
-            records={records}
+            courses={displayedCourses}
+            records={displayedRecords}
             onToggleAttendance={handleToggleAttendance}
             onWeekChange={handleWeekChange}
             onAddCompensation={() => setShowCompDialog(true)}
@@ -596,7 +812,7 @@ export default function App() {
       <AddCompensationDialog
         open={showCompDialog}
         onOpenChange={setShowCompDialog}
-        courses={courses}
+        courses={displayedCourses}
         onSubmit={handleAddCompensation}
       />
 
